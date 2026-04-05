@@ -119,7 +119,7 @@ app.use('/suppliers',   ...protect, supplierRoutes);
 app.use('/purchases',   ...protect, purchaseRoutes);
 app.use('/vehicles',    ...protect, vehicleRoutes);
 app.use('/warehouses',  ...protect, warehouseRoutes);
-app.use('/sales/reports', ...protect, salesReportRoutes);
+app.use('/sales-reports', ...protect, salesReportRoutes);
 app.use('/returns',        ...protect, returnRoutes);
 app.use('/writeoffs',      ...protect, writeoffRoutes);
 app.use('/batches',        ...protect, batchRoutes);

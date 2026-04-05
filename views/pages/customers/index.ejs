@@ -1,0 +1,116 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Customers</h2>
+      <p class="page-subtitle"><%= pagination.total %> customers</p>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#customerModal" onclick="openAdd()">
+        <i class="bi bi-plus-lg me-2"></i>Add Customer
+      </button>
+    </div>
+  </div>
+
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" action="/customers" class="row g-3 align-items-end">
+        <div class="col-md-8">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" name="search" value="<%= search %>" placeholder="Name, email or phone...">
+          </div>
+        </div>
+        <div class="col-md-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">Search</button>
+          <a href="/customers" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card erp-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr><th>Name</th><th>Email</th><th>Phone</th><th>GSTIN</th><th>Since</th><th class="text-end">Actions</th></tr>
+          </thead>
+          <tbody>
+            <% if (!customers.length) { %>
+              <tr><td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-people fs-2 d-block mb-2"></i>No customers</td></tr>
+            <% } %>
+            <% customers.forEach(c => { %>
+            <tr>
+              <td class="fw-medium"><%= c.name %></td>
+              <td class="text-muted"><%= c.email || '—' %></td>
+              <td class="text-muted"><%= c.phone || '—' %></td>
+              <td><% if(c.gstin) { %><code class="small"><%= c.gstin %></code><% } else { %>—<% } %></td>
+              <td class="text-muted small"><%= new Date(c.createdAt).toLocaleDateString('en-IN') %></td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-primary me-1" onclick='editCustomer(<%- JSON.stringify(c) %>)'><i class="bi bi-pencil"></i></button>
+                <form action="/customers/<%= c.id %>?_method=DELETE" method="POST" class="d-inline" onsubmit="return confirm('Delete customer?')">
+                  <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% if (pagination.totalPages > 1) { %>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted">Showing <%= (pagination.page-1)*pagination.limit+1 %>–<%= Math.min(pagination.page*pagination.limit, pagination.total) %> of <%= pagination.total %></small>
+      <%- include('../../partials/pagination', { query: { search } }) %>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<div class="modal fade" id="customerModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="custModalTitle">Add Customer</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="custForm" method="POST" action="/customers">
+        <input type="hidden" name="_method" id="custMethod" value="POST">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12"><label class="form-label">Name <span class="text-danger">*</span></label><input type="text" class="form-control" name="name" id="cName" required></div>
+            <div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" name="email" id="cEmail"></div>
+            <div class="col-md-6"><label class="form-label">Phone</label><input type="text" class="form-control" name="phone" id="cPhone"></div>
+            <div class="col-12"><label class="form-label">Address</label><textarea class="form-control" name="address" id="cAddress" rows="2"></textarea></div>
+            <div class="col-12"><label class="form-label">GSTIN</label><input type="text" class="form-control font-mono" name="gstin" id="cGstin" placeholder="29ABCDE1234F1Z5"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-2"></i><span id="custSubmitText">Save</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+function openAdd() {
+  document.getElementById('custModalTitle').textContent = 'Add Customer';
+  document.getElementById('custForm').action = '/customers';
+  document.getElementById('custMethod').value = 'POST';
+  document.getElementById('custSubmitText').textContent = 'Save Customer';
+  document.getElementById('custForm').reset();
+}
+function editCustomer(c) {
+  document.getElementById('custModalTitle').textContent = 'Edit Customer';
+  document.getElementById('custForm').action = `/customers/${c.id}`;
+  document.getElementById('custMethod').value = 'PUT';
+  document.getElementById('custSubmitText').textContent = 'Update Customer';
+  document.getElementById('cName').value = c.name;
+  document.getElementById('cEmail').value = c.email || '';
+  document.getElementById('cPhone').value = c.phone || '';
+  document.getElementById('cAddress').value = c.address || '';
+  document.getElementById('cGstin').value = c.gstin || '';
+  new bootstrap.Modal(document.getElementById('customerModal')).show();
+}
+</script>

@@ -1,0 +1,121 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Suppliers</h2>
+      <p class="page-subtitle"><%= pagination.total %> suppliers total</p>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#supplierModal" onclick="openAdd()">
+        <i class="bi bi-plus-lg me-2"></i>Add Supplier
+      </button>
+    </div>
+  </div>
+
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" class="row g-3 align-items-end">
+        <div class="col-md-8">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" name="search" value="<%= search %>" placeholder="Name, phone or GSTIN...">
+          </div>
+        </div>
+        <div class="col-md-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">Search</button>
+          <a href="/suppliers" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card erp-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr><th>Name</th><th>Phone</th><th>Email</th><th>GSTIN</th><th>Purchases</th><th class="text-end">Actions</th></tr>
+          </thead>
+          <tbody>
+            <% if (!suppliers.length) { %>
+              <tr><td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-truck fs-2 d-block mb-2"></i>No suppliers found</td></tr>
+            <% } %>
+            <% suppliers.forEach(s => { %>
+            <tr>
+              <td>
+                <div class="fw-medium"><%= s.name %></div>
+                <% if (s.address) { %><small class="text-muted"><%= s.address.substring(0, 50) %></small><% } %>
+              </td>
+              <td class="text-muted"><%= s.phone || '—' %></td>
+              <td class="text-muted"><%= s.email || '—' %></td>
+              <td><% if (s.gstin) { %><code class="sku-code"><%= s.gstin %></code><% } else { %>—<% } %></td>
+              <td><span class="badge bg-light text-dark border"><%= s._count.purchases %> orders</span></td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-primary me-1" onclick='editSupplier(<%- JSON.stringify(s) %>)'><i class="bi bi-pencil"></i></button>
+                <form action="/suppliers/<%= s.id %>?_method=DELETE" method="POST" class="d-inline" onsubmit="return confirm('Deactivate supplier?')">
+                  <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% if (pagination.totalPages > 1) { %>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted">Showing <%= (pagination.page-1)*pagination.limit+1 %>–<%= Math.min(pagination.page*pagination.limit, pagination.total) %> of <%= pagination.total %></small>
+      <%- include('../../partials/pagination', { query: { search } }) %>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Supplier Modal -->
+<div class="modal fade" id="supplierModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="supplierModalTitle">Add Supplier</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="supplierForm" method="POST" action="/suppliers">
+        <input type="hidden" name="_method" id="supplierMethod" value="POST">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12"><label class="form-label">Name <span class="text-danger">*</span></label><input type="text" class="form-control" name="name" id="sName" required></div>
+            <div class="col-md-6"><label class="form-label">Phone</label><input type="text" class="form-control" name="phone" id="sPhone"></div>
+            <div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" name="email" id="sEmail"></div>
+            <div class="col-12"><label class="form-label">GSTIN</label><input type="text" class="form-control font-mono" name="gstin" id="sGstin" placeholder="29ABCDE1234F1Z5"></div>
+            <div class="col-12"><label class="form-label">Address</label><textarea class="form-control" name="address" id="sAddress" rows="2"></textarea></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-2"></i><span id="supplierSubmitText">Save</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openAdd() {
+  document.getElementById('supplierModalTitle').textContent = 'Add Supplier';
+  document.getElementById('supplierForm').action = '/suppliers';
+  document.getElementById('supplierMethod').value = 'POST';
+  document.getElementById('supplierSubmitText').textContent = 'Save Supplier';
+  document.getElementById('supplierForm').reset();
+}
+function editSupplier(s) {
+  document.getElementById('supplierModalTitle').textContent = 'Edit Supplier';
+  document.getElementById('supplierForm').action = `/suppliers/${s.id}`;
+  document.getElementById('supplierMethod').value = 'PUT';
+  document.getElementById('supplierSubmitText').textContent = 'Update Supplier';
+  document.getElementById('sName').value = s.name;
+  document.getElementById('sPhone').value = s.phone || '';
+  document.getElementById('sEmail').value = s.email || '';
+  document.getElementById('sGstin').value = s.gstin || '';
+  document.getElementById('sAddress').value = s.address || '';
+  new bootstrap.Modal(document.getElementById('supplierModal')).show();
+}
+</script>

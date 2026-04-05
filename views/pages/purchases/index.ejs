@@ -1,0 +1,106 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Purchases</h2>
+      <p class="page-subtitle"><%= pagination.total %> purchase orders</p>
+    </div>
+    <div class="page-actions">
+      <a href="/purchases/new" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>New Purchase</a>
+    </div>
+  </div>
+
+  <!-- Monthly Chart -->
+  <div class="card erp-card mb-4">
+    <div class="card-header">
+      <h5 class="card-title"><i class="bi bi-bar-chart me-2"></i>Monthly Purchase Spend</h5>
+    </div>
+    <div class="card-body">
+      <canvas id="purchaseChart" height="80"></canvas>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" name="search" value="<%= search %>" placeholder="PO # or supplier...">
+          </div>
+        </div>
+        <div class="col-md-3">
+          <select class="form-select" name="supplier">
+            <option value="">All Suppliers</option>
+            <% suppliers.forEach(s => { %><option value="<%= s.id %>" <%= supplierId == s.id ? 'selected' : '' %>><%= s.name %></option><% }) %>
+          </select>
+        </div>
+        <div class="col-md-2"><input type="date" class="form-control" name="from" value="<%= from %>"></div>
+        <div class="col-md-2"><input type="date" class="form-control" name="to" value="<%= to %>"></div>
+        <div class="col-md-2 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">Filter</button>
+          <a href="/purchases" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card erp-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr><th>PO #</th><th>Supplier</th><th>Date</th><th>Items</th><th>Tax</th><th>Total</th><th>Status</th><th class="text-end">Actions</th></tr>
+          </thead>
+          <tbody>
+            <% if (!purchases.length) { %>
+              <tr><td colspan="8" class="text-center py-5 text-muted"><i class="bi bi-cart-x fs-2 d-block mb-2"></i>No purchase orders found</td></tr>
+            <% } %>
+            <% purchases.forEach(p => { %>
+            <tr>
+              <td><a href="/purchases/<%= p.id %>" class="fw-semibold text-primary invoice-link"><%= p.poNo %></a></td>
+              <td class="fw-medium"><%= p.supplier.name %></td>
+              <td class="text-muted small"><%= new Date(p.purchaseDate).toLocaleDateString('en-IN') %></td>
+              <td><span class="badge bg-light text-dark border"><%= p.items.length %> items</span></td>
+              <td class="text-muted">₹<%= parseFloat(p.taxAmount).toLocaleString('en-IN') %></td>
+              <td class="fw-bold">₹<%= parseFloat(p.total).toLocaleString('en-IN') %></td>
+              <td>
+                <span class="badge bg-<%= p.status === 'RECEIVED' ? 'success' : p.status === 'CANCELLED' ? 'danger' : p.status === 'ORDERED' ? 'primary' : 'warning' %>">
+                  <%= p.status %>
+                </span>
+              </td>
+              <td class="text-end">
+                <a href="/purchases/<%= p.id %>" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-eye"></i></a>
+                <% if (p.status !== 'CANCELLED') { %>
+                <form action="/purchases/<%= p.id %>/cancel" method="POST" class="d-inline" onsubmit="return confirm('Cancel this PO?')">
+                  <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle"></i></button>
+                </form>
+                <% } %>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% if (pagination.totalPages > 1) { %>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted">Showing <%= (pagination.page-1)*pagination.limit+1 %>–<%= Math.min(pagination.page*pagination.limit, pagination.total) %> of <%= pagination.total %></small>
+      <%- include('../../partials/pagination', { query: { search, from, to, supplier: supplierId } }) %>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<script>
+const chartData = <%- chartData %>;
+new Chart(document.getElementById('purchaseChart').getContext('2d'), {
+  type: 'bar',
+  data: {
+    labels: chartData.map(d => d.month),
+    datasets: [{ label: 'Purchase Spend (₹)', data: chartData.map(d => d.amount), backgroundColor: 'rgba(99,102,241,0.75)', borderRadius: 6 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } } }
+});
+</script>

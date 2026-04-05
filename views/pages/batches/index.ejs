@@ -1,0 +1,132 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-layers me-2 text-info"></i>Product Batches & Expiry</h2>
+      <p class="page-subtitle">Track batch numbers, manufacturing and expiry dates</p>
+    </div>
+    <div class="page-actions">
+      <a href="/batches/new" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>Add Batch</a>
+    </div>
+  </div>
+
+  <!-- Alert banners -->
+  <% if (expiredCount > 0) { %>
+  <div class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-x-octagon-fill fs-5"></i>
+    <div><strong><%= expiredCount %> batch<%= expiredCount>1?'es':'' %> EXPIRED</strong> with remaining stock. Consider writing off expired products.</div>
+    <a href="/writeoffs/new" class="btn btn-sm btn-danger ms-auto">Write Off Now</a>
+  </div>
+  <% } %>
+  <% if (expiringCount > 0) { %>
+  <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+    <div><strong><%= expiringCount %> batch<%= expiringCount>1?'es':'' %> expiring within 60 days.</strong> Review and take action before they expire.</div>
+  </div>
+  <% } %>
+
+  <!-- Filter tabs -->
+  <div class="d-flex gap-2 mb-4">
+    <a href="/batches" class="btn btn-sm <%= filter==='all'?'btn-dark':'btn-outline-secondary' %>">
+      All Batches
+    </a>
+    <a href="/batches?filter=expiring" class="btn btn-sm <%= filter==='expiring'?'btn-warning':'btn-outline-warning' %>">
+      <i class="bi bi-clock me-1"></i>Expiring Soon
+      <% if (expiringCount > 0) { %><span class="badge bg-danger ms-1"><%= expiringCount %></span><% } %>
+    </a>
+    <a href="/batches?filter=expired" class="btn btn-sm <%= filter==='expired'?'btn-danger':'btn-outline-danger' %>">
+      <i class="bi bi-x-circle me-1"></i>Expired
+      <% if (expiredCount > 0) { %><span class="badge bg-danger ms-1"><%= expiredCount %></span><% } %>
+    </a>
+  </div>
+
+  <!-- Filters -->
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" class="row g-3 align-items-end">
+        <input type="hidden" name="filter" value="<%= filter %>">
+        <div class="col-md-8">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" name="search" value="<%= search %>" placeholder="Product name or SKU...">
+          </div>
+        </div>
+        <div class="col-md-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">Search</button>
+          <a href="/batches?filter=<%= filter %>" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Batches Table -->
+  <div class="card erp-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Batch #</th>
+              <th>Warehouse</th>
+              <th class="text-center">Qty</th>
+              <th>Mfg Date</th>
+              <th>Expiry Date</th>
+              <th>Days Left</th>
+              <th>Status</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!batches.length) { %>
+            <tr><td colspan="9" class="text-center py-5 text-muted"><i class="bi bi-layers fs-2 d-block mb-2"></i>No batches found</td></tr>
+            <% } %>
+            <% batches.forEach(b => { %>
+            <tr class="<%= b.expiryStatus === 'expired' ? 'table-danger bg-opacity-10' : b.expiryStatus === 'expiring' ? 'table-warning bg-opacity-10' : '' %>">
+              <td>
+                <div class="fw-medium"><%= b.product.name %></div>
+                <small class="text-muted"><%= b.product.sku %> · <span class="badge bg-light text-dark border"><%= b.product.category.name %></span></small>
+              </td>
+              <td><code class="sku-code"><%= b.batchNo || '—' %></code></td>
+              <td class="text-muted small"><%= b.warehouse ? b.warehouse.name : '—' %></td>
+              <td class="text-center fw-semibold"><%= b.quantity %> <%= b.product.unit %></td>
+              <td class="text-muted small"><%= b.mfgDate ? new Date(b.mfgDate).toLocaleDateString('en-IN') : '—' %></td>
+              <td class="small fw-medium <%= b.expiryStatus === 'expired' ? 'text-danger' : b.expiryStatus === 'expiring' ? 'text-warning' : '' %>">
+                <%= b.expiryDate ? new Date(b.expiryDate).toLocaleDateString('en-IN') : '—' %>
+              </td>
+              <td>
+                <% if (!b.expiryDate) { %>
+                  <span class="text-muted small">No expiry</span>
+                <% } else if (b.expiryStatus === 'expired') { %>
+                  <span class="badge bg-danger">Expired <%= Math.abs(b.daysToExpiry) %>d ago</span>
+                <% } else if (b.expiryStatus === 'expiring') { %>
+                  <span class="badge bg-warning text-dark"><%= b.daysToExpiry %>d left</span>
+                <% } else { %>
+                  <span class="text-success small"><%= b.daysToExpiry %> days</span>
+                <% } %>
+              </td>
+              <td>
+                <% if (b.expiryStatus === 'expired') { %>
+                  <span class="badge bg-danger">Expired</span>
+                <% } else if (b.expiryStatus === 'expiring') { %>
+                  <span class="badge bg-warning text-dark">Expiring Soon</span>
+                <% } else if (b.expiryStatus === 'none') { %>
+                  <span class="badge bg-light text-muted border">No Expiry</span>
+                <% } else { %>
+                  <span class="badge bg-success">Good</span>
+                <% } %>
+              </td>
+              <td class="text-end">
+                <% if (b.expiryStatus === 'expired' || b.expiryStatus === 'expiring') { %>
+                <a href="/writeoffs/new" class="btn btn-sm btn-outline-danger" title="Write Off">
+                  <i class="bi bi-trash"></i>
+                </a>
+                <% } %>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

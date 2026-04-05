@@ -1,0 +1,70 @@
+<div class="page-content">
+  <div class="page-header">
+    <div><h2 class="page-title">Settings</h2><p class="page-subtitle">Application configuration</p></div>
+  </div>
+  <div class="row g-4">
+    <div class="col-xl-7">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-building me-2"></i>Company Settings</h5></div>
+        <div class="card-body">
+          <form action="/settings" method="POST">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Company Name</label>
+                <input type="text" class="form-control" name="company_name" value="<%= settings.company_name || '' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Currency Symbol</label>
+                <input type="text" class="form-control" name="currency" value="<%= settings.currency || '₹' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Invoice Prefix</label>
+                <input type="text" class="form-control font-mono" name="invoice_prefix" value="<%= settings.invoice_prefix || 'INV' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Company Email</label>
+                <input type="email" class="form-control" name="company_email" value="<%= settings.company_email || '' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Company Phone</label>
+                <input type="text" class="form-control" name="company_phone" value="<%= settings.company_phone || '' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">GSTIN</label>
+                <input type="text" class="form-control font-mono" name="company_gstin" value="<%= settings.company_gstin || '' %>" placeholder="29ABCDE1234F1Z5">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Company Address</label>
+                <textarea class="form-control" name="company_address" rows="2"><%= settings.company_address || '' %></textarea>
+              </div>
+            </div>
+            <div class="mt-4">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-2"></i>Save Settings
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-5">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-shield-lock me-2"></i>License</h5></div>
+        <div class="card-body">
+          <div class="mb-3 p-3 bg-light rounded">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="bi bi-check-circle-fill text-success fs-5"></i>
+              <span class="fw-semibold">Application Activated</span>
+            </div>
+            <small class="text-muted">The software is currently active and licensed.</small>
+          </div>
+          <form action="/activation/deactivate" method="POST" onsubmit="return confirm('Deactivate? You will need to re-activate to use the app.')">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+              <i class="bi bi-power me-2"></i>Deactivate License
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

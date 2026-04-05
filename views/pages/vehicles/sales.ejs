@@ -1,0 +1,125 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Van Sales</h2>
+      <p class="page-subtitle">Vehicle-wise sales tracking</p>
+    </div>
+    <div class="page-actions">
+      <a href="/vehicles" class="btn btn-outline-secondary me-2"><i class="bi bi-truck me-2"></i>Vehicles</a>
+      <a href="/vehicles/sales/new" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>New Van Sale</a>
+    </div>
+  </div>
+
+  <!-- Vehicle-wise Summary Chart -->
+  <div class="row g-4 mb-4">
+    <div class="col-xl-8">
+      <div class="card erp-card">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-bar-chart me-2"></i>Vehicle-wise Sales</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="vehicleSalesChart" height="100"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-4">
+      <div class="card erp-card h-100">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-pie-chart me-2"></i>Sales Share</h5></div>
+        <div class="card-body d-flex align-items-center justify-content-center">
+          <canvas id="vehiclePieChart" style="max-height:220px"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" action="/vehicles/sales" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <select class="form-select" name="vehicle">
+            <option value="">All Vehicles</option>
+            <% vehicles.forEach(v => { %><option value="<%= v.id %>" <%= vehicleId == v.id ? 'selected' : '' %>><%= v.name %> — <%= v.regNo %></option><% }) %>
+          </select>
+        </div>
+        <div class="col-md-3"><input type="date" class="form-control" name="from" value="<%= from %>" placeholder="From date"></div>
+        <div class="col-md-3"><input type="date" class="form-control" name="to" value="<%= to %>" placeholder="To date"></div>
+        <div class="col-md-3 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">Filter</button>
+          <a href="/vehicles/sales" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card erp-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr><th>Invoice</th><th>Vehicle</th><th>Customer</th><th>Date</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>By</th></tr>
+          </thead>
+          <tbody>
+            <% if (!vanSales.length) { %>
+            <tr><td colspan="9" class="text-center py-5 text-muted"><i class="bi bi-receipt fs-2 d-block mb-2"></i>No van sales found</td></tr>
+            <% } %>
+            <% vanSales.forEach(s => { %>
+            <tr>
+              <td><a href="/vehicles/sales/<%= s.id %>" class="fw-semibold text-success invoice-link"><%= s.invoiceNo %></a></td>
+              <td>
+                <div class="fw-medium"><%= s.vehicle.name %></div>
+                <small class="text-muted"><%= s.vehicle.regNo %></small>
+              </td>
+              <td class="text-muted"><%= s.customer ? s.customer.name : 'Walk-in' %></td>
+              <td class="text-muted small"><%= new Date(s.saleDate).toLocaleDateString('en-IN') %></td>
+              <td><span class="badge bg-light text-dark border"><%= s.items.length %></span></td>
+              <td class="fw-bold">₹<%= parseFloat(s.total).toLocaleString('en-IN') %></td>
+              <td><span class="badge bg-light text-dark border"><%= s.paymentMode %></span></td>
+              <td><span class="badge bg-<%= s.status === 'PAID' ? 'success' : s.status === 'CANCELLED' ? 'danger' : 'warning' %>"><%= s.status %></span></td>
+              <td class="text-muted small"><%= s.user.name %></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% if (pagination.totalPages > 1) { %>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted">Showing <%= (pagination.page-1)*pagination.limit+1 %>–<%= Math.min(pagination.page*pagination.limit, pagination.total) %> of <%= pagination.total %></small>
+      <%- include('../../partials/pagination', { query: { vehicle: vehicleId, from, to } }) %>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<script>
+(function() {
+  const summary = <%- summary %>;
+  const labels = summary.map(d => d.name);
+  const vals = summary.map(d => d.total);
+  const colors = ['#6366f1','#22c55e','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#ec4899'];
+
+  new Chart(document.getElementById('vehicleSalesChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Total Sales (₹)', data: vals,
+        backgroundColor: colors.slice(0, labels.length),
+        borderRadius: 6
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } } }
+  });
+
+  new Chart(document.getElementById('vehiclePieChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: labels.length ? labels : ['No Data'],
+      datasets: [{ data: vals.length ? vals : [1], backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, cutout: '60%' }
+  });
+})();
+</script>

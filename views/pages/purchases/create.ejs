@@ -1,0 +1,187 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">New Purchase Order</h2>
+      <p class="page-subtitle">PO # <strong><%= poNo %></strong></p>
+    </div>
+    <div class="page-actions">
+      <a href="/purchases" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Back</a>
+    </div>
+  </div>
+
+  <div id="poAlert" class="d-none mb-3"></div>
+
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-list-ul me-2"></i>Purchase Items</h5></div>
+        <div class="card-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-8">
+              <label class="form-label small fw-medium">Search & Add Product</label>
+              <div class="input-group" style="position:relative">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="productSearch" placeholder="Type product name or SKU...">
+              </div>
+              <div id="productDropdown" class="product-dropdown d-none"></div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table erp-table" id="poTable">
+              <thead>
+                <tr><th>Product</th><th style="width:90px">Qty</th><th style="width:120px">Cost Price</th><th style="width:80px">Tax %</th><th style="width:120px">Total</th><th style="width:50px"></th></tr>
+              </thead>
+              <tbody id="poItems">
+                <tr id="emptyRow"><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-cart-plus fs-3 d-block mb-2"></i>Search and add products above</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="card erp-card mb-4">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-truck me-2"></i>Supplier & Details</h5></div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Supplier <span class="text-danger">*</span></label>
+            <select class="form-select" id="supplierId">
+              <option value="">Select supplier...</option>
+              <% suppliers.forEach(s => { %><option value="<%= s.id %>"><%= s.name %></option><% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Receive into Warehouse</label>
+            <select class="form-select" id="warehouseId">
+              <option value="">— No specific warehouse —</option>
+              <% if (typeof warehouses !== 'undefined') { warehouses.forEach(w => { %>
+                <option value="<%= w.id %>" <%= (typeof defaultWarehouseId !== 'undefined' && defaultWarehouseId === w.id) ? 'selected' : '' %>>
+                  <%= w.name %><% if (w.isDefault) { %> ★<% } %>
+                </option>
+              <% }) } %>
+            </select>
+            <div class="form-text">Stock will be added to this warehouse on receipt</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Status</label>
+            <select class="form-select" id="poStatus">
+              <option value="RECEIVED">✅ Received</option>
+              <option value="ORDERED">📦 Ordered (Pending)</option>
+              <option value="PARTIAL">⚠️ Partial</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Notes</label>
+            <textarea class="form-control" id="poNotes" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-calculator me-2"></i>Summary</h5></div>
+        <div class="card-body">
+          <div class="invoice-summary">
+            <div class="summary-row"><span>Subtotal</span><span id="sumSubtotal">₹0.00</span></div>
+            <div class="summary-row"><span>Tax</span><span id="sumTax">₹0.00</span></div>
+            <hr>
+            <div class="summary-row summary-total"><span>Total</span><span id="sumTotal">₹0.00</span></div>
+          </div>
+          <div class="alert alert-info small mt-3 mb-0">
+            <i class="bi bi-info-circle me-2"></i>Stock will be added to warehouse when status is <strong>Received</strong>.
+          </div>
+          <div class="d-grid gap-2 mt-3">
+            <button class="btn btn-success btn-lg" id="savePOBtn" onclick="savePO()">
+              <span class="btn-text"><i class="bi bi-check-circle me-2"></i>Save Purchase Order</span>
+              <span class="btn-loader d-none"><span class="spinner-border spinner-border-sm me-2"></span>Saving...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PO_NO = '<%= poNo %>';
+let poItems = [];
+let searchTimeout;
+
+document.getElementById('productSearch').addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) { document.getElementById('productDropdown').classList.add('d-none'); return; }
+  searchTimeout = setTimeout(() => fetchProducts(q), 300);
+});
+
+async function fetchProducts(query) {
+  const res = await fetch(`/products/api/list?search=${encodeURIComponent(query)}`);
+  const products = await res.json();
+  const dd = document.getElementById('productDropdown');
+  dd.innerHTML = products.length
+    ? products.map(p => `<div class="dropdown-item product-item" onclick='addProduct(${JSON.stringify(p)})'><div class="d-flex justify-content-between"><div><div class="fw-medium">${p.name}</div><small class="text-muted">${p.sku} · Stock: ${p.stock}</small></div><div class="text-end"><div class="text-muted small">Cost: ₹${parseFloat(p.price).toFixed(2)}</div><small class="text-muted">${p.tax}% tax</small></div></div></div>`).join('')
+    : '<div class="dropdown-item text-muted">No products found</div>';
+  dd.classList.remove('d-none');
+}
+
+function addProduct(p) {
+  document.getElementById('productDropdown').classList.add('d-none');
+  document.getElementById('productSearch').value = '';
+  const existing = poItems.find(i => i.productId === p.id);
+  if (existing) { existing.qty++; renderItems(); calcTotals(); return; }
+  poItems.push({ productId: p.id, name: p.name, sku: p.sku, price: parseFloat(p.price), tax: parseFloat(p.tax), qty: 1 });
+  renderItems(); calcTotals();
+}
+
+function renderItems() {
+  const tbody = document.getElementById('poItems');
+  document.getElementById('emptyRow')?.remove();
+  if (!poItems.length) { tbody.innerHTML = '<tr id="emptyRow"><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-cart-plus fs-3 d-block mb-2"></i>Search and add products above</td></tr>'; return; }
+  tbody.innerHTML = poItems.map((item, idx) => {
+    const t = item.price * item.qty * (1 + item.tax / 100);
+    return `<tr><td><div class="fw-medium">${item.name}</div><small class="text-muted">${item.sku}</small></td>
+      <td><input type="number" class="form-control form-control-sm" value="${item.qty}" min="1" onchange="updateQty(${idx},this.value)" style="width:70px"></td>
+      <td><input type="number" class="form-control form-control-sm" value="${item.price}" min="0" step="0.01" onchange="updatePrice(${idx},this.value)" style="width:100px"></td>
+      <td class="text-muted">${item.tax}%</td>
+      <td class="fw-semibold">₹${t.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td><button class="btn btn-sm btn-outline-danger" onclick="removeItem(${idx})"><i class="bi bi-trash"></i></button></td></tr>`;
+  }).join('');
+}
+
+function updateQty(idx, v) { poItems[idx].qty = Math.max(1, parseInt(v)||1); renderItems(); calcTotals(); }
+function updatePrice(idx, v) { poItems[idx].price = parseFloat(v)||0; renderItems(); calcTotals(); }
+function removeItem(idx) { poItems.splice(idx,1); renderItems(); calcTotals(); }
+
+function calcTotals() {
+  let sub = 0, tax = 0;
+  poItems.forEach(i => { const b = i.price * i.qty; sub += b; tax += (b * i.tax)/100; });
+  document.getElementById('sumSubtotal').textContent = `₹${sub.toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+  document.getElementById('sumTax').textContent = `₹${tax.toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+  document.getElementById('sumTotal').textContent = `₹${(sub+tax).toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+}
+
+async function savePO() {
+  if (!poItems.length) return showAlert('danger', 'Add at least one product.');
+  const supplierId = document.getElementById('supplierId').value;
+  if (!supplierId) return showAlert('danger', 'Please select a supplier.');
+  const btn = document.getElementById('savePOBtn');
+  btn.querySelector('.btn-text').classList.add('d-none');
+  btn.querySelector('.btn-loader').classList.remove('d-none');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/purchases', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ poNo: PO_NO, supplierId, warehouseId: document.getElementById('warehouseId').value || null, status: document.getElementById('poStatus').value, notes: document.getElementById('poNotes').value,
+        items: poItems.map(i => ({ productId: i.productId, quantity: i.qty, price: i.price, tax: i.tax })) }) });
+    const data = await res.json();
+    if (data.success) { showAlert('success', data.message); setTimeout(() => window.location.href = `/purchases/${data.purchaseId}`, 1200); }
+    else { showAlert('danger', data.message); btn.querySelector('.btn-text').classList.remove('d-none'); btn.querySelector('.btn-loader').classList.add('d-none'); btn.disabled = false; }
+  } catch { showAlert('danger', 'Network error.'); btn.querySelector('.btn-text').classList.remove('d-none'); btn.querySelector('.btn-loader').classList.add('d-none'); btn.disabled = false; }
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('poAlert');
+  el.className = `alert alert-${type}`; el.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':'exclamation-triangle'}-fill me-2"></i>${msg}`; el.classList.remove('d-none');
+}
+
+document.addEventListener('click', e => { if (!e.target.closest('#productSearch') && !e.target.closest('#productDropdown')) document.getElementById('productDropdown').classList.add('d-none'); });
+</script>

@@ -1,0 +1,204 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-trash me-2 text-warning"></i>New Write-off</h2>
+      <p class="page-subtitle">Ref # <strong><%= writeoffNo %></strong></p>
+    </div>
+    <div class="page-actions">
+      <a href="/writeoffs" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Back</a>
+    </div>
+  </div>
+
+  <div id="woAlert" class="d-none mb-3"></div>
+
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-box-seam me-2"></i>Products to Write Off</h5></div>
+        <div class="card-body">
+          <div class="row g-3 mb-3" style="position:relative">
+            <div class="col-md-8">
+              <label class="form-label small fw-medium">Search & Add Product</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="productSearch" placeholder="Product name or SKU...">
+              </div>
+              <div id="productDropdown" class="product-dropdown d-none"></div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table erp-table">
+              <thead><tr><th>Product</th><th style="width:90px">Qty</th><th style="width:130px">Cost Value (₹)</th><th style="width:50px"></th></tr></thead>
+              <tbody id="woItems">
+                <tr id="emptyRow"><td colspan="4" class="text-center py-3 text-muted"><i class="bi bi-box-seam fs-3 d-block mb-1"></i>Add products above</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-info-circle me-2"></i>Write-off Details</h5></div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-medium">Reason <span class="text-danger">*</span></label>
+            <div class="d-grid gap-2" id="reasonButtons">
+              <% Object.entries(REASON_LABELS).forEach(([key, info]) => { %>
+              <button type="button" class="btn btn-outline-<%= info.color %> reason-btn text-start"
+                data-reason="<%= key %>" onclick="selectReason(this)">
+                <i class="bi <%= info.icon %> me-2"></i><%= info.label %>
+              </button>
+              <% }) %>
+            </div>
+            <input type="hidden" id="selectedReason">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Date</label>
+            <input type="date" class="form-control" id="writeoffDate"
+              value="<%= new Date().toISOString().split('T')[0] %>">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Warehouse</label>
+            <select class="form-select" id="warehouseId">
+              <option value="">— Auto (deducts from warehouse with most stock) —</option>
+              <% warehouses.forEach(w => { %>
+              <option value="<%= w.id %>" <%= w.isDefault ? 'selected' : '' %>><%= w.name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Notes</label>
+            <textarea class="form-control" id="woNotes" rows="2"></textarea>
+          </div>
+
+          <div class="invoice-summary mb-3">
+            <div class="summary-row"><span>Products</span><span id="sumProds">0</span></div>
+            <div class="summary-row summary-total"><span>Total Cost Lost</span><span id="sumCost" class="text-danger">₹0.00</span></div>
+          </div>
+
+          <button class="btn btn-warning w-100" onclick="submitWriteoff()">
+            <span class="btn-text"><i class="bi bi-trash me-2"></i>Record Write-off</span>
+            <span class="btn-loader d-none"><span class="spinner-border spinner-border-sm me-2"></span>Saving...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const WO_NO = '<%= writeoffNo %>';
+let woItems = [];
+let allProducts = <%- JSON.stringify(products.map(p => ({ id: p.id, name: p.name, sku: p.sku, stock: p.stock, costPrice: parseFloat(p.costPrice), unit: p.unit, category: p.category.name }))) %>;
+
+// Product search
+let searchTimer;
+document.getElementById('productSearch').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  const q = this.value.trim().toLowerCase();
+  if (q.length < 1) { document.getElementById('productDropdown').classList.add('d-none'); return; }
+  const filtered = allProducts.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
+  const dd = document.getElementById('productDropdown');
+  dd.innerHTML = filtered.length
+    ? filtered.map(p => `<div class="dropdown-item product-item" onclick='addProduct(${JSON.stringify(p)})'><div class="d-flex justify-content-between"><div><div class="fw-medium">${p.name}</div><small class="text-muted">${p.sku} · ${p.category}</small></div><div class="text-end"><span class="badge bg-${p.stock <= 0 ? 'danger' : 'success'}">${p.stock} ${p.unit}</span></div></div></div>`).join('')
+    : '<div class="dropdown-item text-muted">No products found</div>';
+  dd.classList.remove('d-none');
+});
+
+function addProduct(p) {
+  document.getElementById('productDropdown').classList.add('d-none');
+  document.getElementById('productSearch').value = '';
+  if (woItems.find(i => i.productId === p.id)) return;
+  woItems.push({ productId: p.id, name: p.name, sku: p.sku, stock: p.stock, unit: p.unit, qty: 1, costValue: p.costPrice });
+  renderItems(); calcSummary();
+}
+
+function renderItems() {
+  const tbody = document.getElementById('woItems');
+  document.getElementById('emptyRow')?.remove();
+  if (!woItems.length) {
+    tbody.innerHTML = '<tr id="emptyRow"><td colspan="4" class="text-center py-3 text-muted"><i class="bi bi-box-seam fs-3 d-block mb-1"></i>Add products above</td></tr>';
+    return;
+  }
+  tbody.innerHTML = woItems.map((item, idx) => `
+    <tr>
+      <td>
+        <div class="fw-medium">${item.name}</div>
+        <small class="text-muted">${item.sku} · Avail: ${item.stock} ${item.unit}</small>
+      </td>
+      <td>
+        <input type="number" class="form-control form-control-sm" value="${item.qty}" min="1" max="${item.stock}"
+          onchange="updateQty(${idx},this.value)" style="width:70px">
+      </td>
+      <td>
+        <input type="number" class="form-control form-control-sm" value="${item.costValue}" min="0" step="0.01"
+          onchange="updateCost(${idx},this.value)" style="width:110px">
+      </td>
+      <td>
+        <button class="btn btn-sm btn-outline-danger" onclick="removeItem(${idx})"><i class="bi bi-x"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function updateQty(idx, v)  { woItems[idx].qty = Math.max(1, Math.min(parseInt(v)||1, woItems[idx].stock)); renderItems(); calcSummary(); }
+function updateCost(idx, v) { woItems[idx].costValue = parseFloat(v)||0; calcSummary(); }
+function removeItem(idx)    { woItems.splice(idx,1); renderItems(); calcSummary(); }
+
+function calcSummary() {
+  const cost = woItems.reduce((s,i) => s + i.qty * i.costValue, 0);
+  document.getElementById('sumProds').textContent = woItems.length;
+  document.getElementById('sumCost').textContent = `₹${cost.toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+}
+
+function selectReason(btn) {
+  document.querySelectorAll('.reason-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('selectedReason').value = btn.dataset.reason;
+}
+
+async function submitWriteoff() {
+  if (!document.getElementById('selectedReason').value) return showAlert('danger', 'Select a reason for the write-off.');
+  if (!woItems.length) return showAlert('danger', 'Add at least one product.');
+  const btn = document.querySelector('[onclick="submitWriteoff()"]');
+  btn.querySelector('.btn-text').classList.add('d-none');
+  btn.querySelector('.btn-loader').classList.remove('d-none');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/writeoffs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        writeoffNo:  WO_NO,
+        warehouseId: document.getElementById('warehouseId').value || null,
+        reason:      document.getElementById('selectedReason').value,
+        notes:       document.getElementById('woNotes').value,
+        writeoffDate: document.getElementById('writeoffDate').value,
+        items: woItems.map(i => ({ productId: i.productId, quantity: i.qty, costValue: i.costValue }))
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showAlert('success', data.message);
+      setTimeout(() => window.location.href = '/writeoffs', 1500);
+    } else {
+      showAlert('danger', data.message);
+      btn.querySelector('.btn-text').classList.remove('d-none');
+      btn.querySelector('.btn-loader').classList.add('d-none');
+      btn.disabled = false;
+    }
+  } catch { showAlert('danger', 'Network error.'); }
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('woAlert');
+  el.className = `alert alert-${type}`;
+  el.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':'exclamation-triangle'}-fill me-2"></i>${msg}`;
+  el.classList.remove('d-none');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#productSearch') && !e.target.closest('#productDropdown'))
+    document.getElementById('productDropdown').classList.add('d-none');
+});
+</script>

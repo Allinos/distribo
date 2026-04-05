@@ -1,0 +1,165 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Warehouses</h2>
+      <p class="page-subtitle">Manage storage locations and inventory</p>
+    </div>
+    <div class="page-actions">
+      <a href="/warehouses/transfers/new" class="btn btn-outline-primary me-2">
+        <i class="bi bi-arrow-left-right me-2"></i>Stock Transfer
+      </a>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#warehouseModal" onclick="openAdd()">
+        <i class="bi bi-plus-lg me-2"></i>Add Warehouse
+      </button>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <% if (!warehouses.length) { %>
+    <div class="col-12">
+      <div class="card erp-card">
+        <div class="card-body empty-state py-5">
+          <i class="bi bi-building fs-2 text-muted"></i>
+          <p class="mt-2 text-muted">No warehouses yet. Add your first warehouse to start tracking inventory.</p>
+        </div>
+      </div>
+    </div>
+    <% } %>
+
+    <% warehouses.forEach(w => { %>
+    <div class="col-xl-4 col-md-6">
+      <div class="card erp-card wh-card">
+        <div class="card-header">
+          <div class="d-flex align-items-center gap-2">
+            <div class="wh-icon"><i class="bi bi-building"></i></div>
+            <div>
+              <div class="fw-semibold">
+                <%= w.name %>
+                <% if (w.isDefault) { %><span class="badge bg-primary ms-1" style="font-size:.65rem">DEFAULT</span><% } %>
+              </div>
+              <% if (w.location) { %><small class="text-muted"><i class="bi bi-geo-alt me-1"></i><%= w.location %></small><% } %>
+            </div>
+          </div>
+          <div class="d-flex gap-1">
+            <button class="btn btn-sm btn-outline-primary" onclick='editWarehouse(<%- JSON.stringify({id:w.id,name:w.name,location:w.location||"",description:w.description||"",isDefault:w.isDefault}) %>)'>
+              <i class="bi bi-pencil"></i>
+            </button>
+            <a href="/warehouses/<%= w.id %>/stock" class="btn btn-sm btn-outline-success">
+              <i class="bi bi-box-seam"></i>
+            </a>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <div class="wh-stat">
+                <div class="wh-stat-label">Products</div>
+                <div class="wh-stat-value"><%= w._count.stocks %></div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="wh-stat">
+                <div class="wh-stat-label">Sales</div>
+                <div class="wh-stat-value"><%= w._count.sales %></div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="wh-stat">
+                <div class="wh-stat-label">Stock Value</div>
+                <div class="wh-stat-value text-success">₹<%= w.stockValue.toLocaleString('en-IN', {minimumFractionDigits:0, maximumFractionDigits:0}) %></div>
+              </div>
+            </div>
+          </div>
+          <% if (w.description) { %>
+          <p class="text-muted small mb-0"><%= w.description %></p>
+          <% } %>
+        </div>
+        <div class="card-footer d-flex gap-2">
+          <a href="/warehouses/<%= w.id %>/stock" class="btn btn-sm btn-primary flex-fill">
+            <i class="bi bi-eye me-1"></i>View Stock
+          </a>
+          <% if (!w.isDefault) { %>
+          <form action="/warehouses/<%= w.id %>?_method=DELETE" method="POST" class="d-inline" onsubmit="return confirm('Deactivate this warehouse?')">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+          </form>
+          <% } %>
+        </div>
+      </div>
+    </div>
+    <% }) %>
+  </div>
+</div>
+
+<!-- Warehouse Modal -->
+<div class="modal fade" id="warehouseModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="whModalTitle">Add Warehouse</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="whForm" method="POST" action="/warehouses">
+        <input type="hidden" name="_method" id="whMethod" value="POST">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Warehouse Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" name="name" id="whName" required placeholder="e.g. Main Warehouse, Godown A">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Location / Address</label>
+              <input type="text" class="form-control" name="location" id="whLocation" placeholder="e.g. Mumbai, 123 Industrial Area">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              <textarea class="form-control" name="description" id="whDesc" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="isDefault" id="whDefault">
+                <label class="form-check-label fw-medium" for="whDefault">
+                  Set as default warehouse
+                  <small class="text-muted d-block">Default warehouse is pre-selected in sales and purchases</small>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-2"></i><span id="whSubmitText">Save Warehouse</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+.wh-card { transition: box-shadow 0.2s; }
+.wh-card:hover { box-shadow: var(--shadow); }
+.wh-icon { width:40px;height:40px;background:var(--primary-light);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:1.2rem;flex-shrink:0; }
+.wh-stat { background:#f8fafc;border-radius:8px;padding:.6rem .875rem; }
+.wh-stat-label { font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:.2rem; }
+.wh-stat-value { font-size:1.1rem;font-weight:700;color:var(--text-primary); }
+</style>
+
+<script>
+function openAdd() {
+  document.getElementById('whModalTitle').textContent = 'Add Warehouse';
+  document.getElementById('whForm').action = '/warehouses';
+  document.getElementById('whMethod').value = 'POST';
+  document.getElementById('whSubmitText').textContent = 'Save Warehouse';
+  document.getElementById('whForm').reset();
+}
+function editWarehouse(w) {
+  document.getElementById('whModalTitle').textContent = 'Edit Warehouse';
+  document.getElementById('whForm').action = `/warehouses/${w.id}`;
+  document.getElementById('whMethod').value = 'PUT';
+  document.getElementById('whSubmitText').textContent = 'Update Warehouse';
+  document.getElementById('whName').value = w.name;
+  document.getElementById('whLocation').value = w.location || '';
+  document.getElementById('whDesc').value = w.description || '';
+  document.getElementById('whDefault').checked = w.isDefault;
+  new bootstrap.Modal(document.getElementById('warehouseModal')).show();
+}
+</script>

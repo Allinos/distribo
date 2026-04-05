@@ -1,0 +1,268 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Expenses</h2>
+      <p class="page-subtitle"><%= pagination.total %> expense records</p>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#expenseModal" onclick="openAddExpense()">
+        <i class="bi bi-plus-lg me-2"></i>Add Expense
+      </button>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="row g-4 mb-4">
+    <div class="col-xl-8">
+      <div class="card erp-card">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-bar-chart me-2"></i>Monthly Expenses</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="expenseChart" height="100"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-4">
+      <div class="card erp-card">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-pie-chart me-2"></i>By Category</h5>
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center">
+          <canvas id="categoryChart" style="max-height:240px"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" action="/expenses" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label small fw-medium">Search</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" name="search" value="<%= search %>" placeholder="Title...">
+          </div>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-medium">Category</label>
+          <select class="form-select" name="category">
+            <option value="">All</option>
+            <% categories.forEach(c => { %>
+              <option value="<%= c.id %>" <%= category == c.id ? 'selected' : '' %>><%= c.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-medium">From</label>
+          <input type="date" class="form-control" name="from" value="<%= from %>">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-medium">To</label>
+          <input type="date" class="form-control" name="to" value="<%= to %>">
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">Filter</button>
+          <a href="/expenses" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card erp-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Added By</th>
+              <th>Attachment</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (expenses.length === 0) { %>
+            <tr>
+              <td colspan="7" class="text-center py-5 text-muted">
+                <i class="bi bi-wallet2 fs-2 d-block mb-2"></i>No expenses found
+              </td>
+            </tr>
+            <% } %>
+            <% expenses.forEach(e => { %>
+            <tr>
+              <td>
+                <div class="fw-medium"><%= e.title %></div>
+                <% if (e.description) { %>
+                  <small class="text-muted text-truncate d-block" style="max-width:200px"><%= e.description %></small>
+                <% } %>
+              </td>
+              <td><span class="badge bg-light text-dark border"><%= e.category.name %></span></td>
+              <td class="text-muted small"><%= new Date(e.date).toLocaleDateString('en-IN') %></td>
+              <td class="fw-semibold text-danger">₹<%= parseFloat(e.amount).toLocaleString('en-IN') %></td>
+              <td class="text-muted small"><%= e.user.name %></td>
+              <td>
+                <% if (e.attachment) { %>
+                  <a href="/uploads/<%= e.attachment %>" target="_blank" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-paperclip me-1"></i>View
+                  </a>
+                <% } else { %>
+                  <span class="text-muted small">—</span>
+                <% } %>
+              </td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-primary me-1" onclick='editExpense(<%- JSON.stringify(e) %>)'>
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <form action="/expenses/<%= e.id %>?_method=DELETE" method="POST" class="d-inline"
+                  onsubmit="return confirm('Delete this expense?')">
+                  <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% if (pagination.totalPages > 1) { %>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted">
+        Showing <%= (pagination.page - 1) * pagination.limit + 1 %> –
+        <%= Math.min(pagination.page * pagination.limit, pagination.total) %>
+        of <%= pagination.total %>
+      </small>
+      <%- include('../../partials/pagination', { query: { search, category, from, to, limit: pagination.limit } }) %>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Expense Modal -->
+<div class="modal fade" id="expenseModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="expenseModalTitle">Add Expense</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="expenseForm" method="POST" action="/expenses" enctype="multipart/form-data">
+        <input type="hidden" name="_method" id="expenseMethod" value="POST">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Title <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" name="title" id="eTitle" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Category <span class="text-danger">*</span></label>
+              <select class="form-select" name="categoryId" id="eCategory" required>
+                <option value="">Select...</option>
+                <% categories.forEach(c => { %>
+                  <option value="<%= c.id %>"><%= c.name %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Date <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" name="date" id="eDate" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Amount (₹) <span class="text-danger">*</span></label>
+              <input type="number" class="form-control" name="amount" id="eAmount" step="0.01" min="0" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Attachment</label>
+              <input type="file" class="form-control" name="attachment" id="eAttachment"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              <textarea class="form-control" name="description" id="eDescription" rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-2"></i><span id="expenseSubmitText">Save Expense</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openAddExpense() {
+  document.getElementById('expenseModalTitle').textContent = 'Add Expense';
+  document.getElementById('expenseForm').action = '/expenses';
+  document.getElementById('expenseMethod').value = 'POST';
+  document.getElementById('expenseSubmitText').textContent = 'Save Expense';
+  document.getElementById('expenseForm').reset();
+  document.getElementById('eDate').value = new Date().toISOString().split('T')[0];
+}
+
+function editExpense(e) {
+  document.getElementById('expenseModalTitle').textContent = 'Edit Expense';
+  document.getElementById('expenseForm').action = `/expenses/${e.id}`;
+  document.getElementById('expenseMethod').value = 'PUT';
+  document.getElementById('expenseSubmitText').textContent = 'Update Expense';
+  document.getElementById('eTitle').value = e.title;
+  document.getElementById('eCategory').value = e.categoryId;
+  document.getElementById('eDate').value = e.date.split('T')[0];
+  document.getElementById('eAmount').value = e.amount;
+  document.getElementById('eDescription').value = e.description || '';
+  new bootstrap.Modal(document.getElementById('expenseModal')).show();
+}
+
+// Charts
+(function() {
+  const monthly = <%- chartData %>;
+  const breakdown = <%- breakdown %>;
+
+  new Chart(document.getElementById('expenseChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: monthly.map(d => d.month),
+      datasets: [{
+        label: 'Expenses',
+        data: monthly.map(d => d.amount),
+        backgroundColor: 'rgba(239,68,68,0.75)',
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('categoryChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: breakdown.length ? breakdown.map(d => d.name) : ['No Data'],
+      datasets: [{
+        data: breakdown.length ? breakdown.map(d => d.amount) : [1],
+        backgroundColor: ['#6366f1','#ef4444','#f59e0b','#22c55e','#3b82f6','#8b5cf6'],
+        borderWidth: 2, borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } },
+      cutout: '60%'
+    }
+  });
+})();
+</script>

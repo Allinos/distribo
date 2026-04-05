@@ -1,0 +1,111 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Backup & Restore</h2>
+      <p class="page-subtitle">Manage database backups</p>
+    </div>
+    <div class="page-actions">
+      <form action="/backup/create" method="POST" class="d-inline">
+        <button type="submit" class="btn btn-primary" onclick="return confirm('Create a new backup now?')">
+          <i class="bi bi-cloud-arrow-up me-2"></i>Create Backup
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Backup Files -->
+    <div class="col-xl-7">
+      <div class="card erp-card">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-archive me-2"></i>Backup Files</h5>
+          <span class="badge bg-light text-dark border"><%= files.length %> backups</span>
+        </div>
+        <div class="card-body p-0">
+          <% if (files.length === 0) { %>
+          <div class="empty-state py-5">
+            <i class="bi bi-archive fs-2 text-muted"></i>
+            <p class="mt-2 text-muted">No backups yet. Create your first backup!</p>
+          </div>
+          <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover erp-table mb-0">
+              <thead>
+                <tr>
+                  <th>Filename</th>
+                  <th>Size</th>
+                  <th>Created</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% files.forEach(f => { %>
+                <tr>
+                  <td>
+                    <i class="bi bi-file-earmark-zip-fill text-warning me-2"></i>
+                    <span class="font-mono small"><%= f.name %></span>
+                  </td>
+                  <td class="text-muted small"><%= (f.size / 1024).toFixed(1) %> KB</td>
+                  <td class="text-muted small"><%= new Date(f.mtime).toLocaleString('en-IN') %></td>
+                  <td class="text-end">
+                    <a href="/backup/download/<%= f.name %>" class="btn btn-sm btn-outline-primary me-1">
+                      <i class="bi bi-download"></i>
+                    </a>
+                    <form action="/backup/<%= encodeURIComponent(f.name) %>?_method=DELETE" method="POST"
+                      class="d-inline" onsubmit="return confirm('Delete this backup file?')">
+                      <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                    </form>
+                  </td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Restore + Info -->
+    <div class="col-xl-5">
+      <div class="card erp-card mb-4">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-cloud-arrow-down me-2"></i>Restore Database</h5>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-warning small">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <strong>Warning:</strong> Restoring will overwrite the current database.
+            Create a backup first!
+          </div>
+          <form action="/backup/restore" method="POST" enctype="multipart/form-data"
+            onsubmit="return confirm('This will overwrite all current data. Are you absolutely sure?')">
+            <div class="mb-3">
+              <label class="form-label fw-medium">Upload SQL Backup File</label>
+              <input type="file" class="form-control" name="backupFile" accept=".sql" required>
+              <div class="form-text">Only .sql files from mysqldump are supported.</div>
+            </div>
+            <button type="submit" class="btn btn-danger w-100">
+              <i class="bi bi-upload me-2"></i>Restore Now
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card erp-card">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-info-circle me-2"></i>Backup Info</h5>
+        </div>
+        <div class="card-body">
+          <ul class="list-unstyled small">
+            <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Auto backup runs daily at 2:00 AM</li>
+            <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Backups stored locally at <code>/backups/</code></li>
+            <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Uses mysqldump format</li>
+            <li class="mb-2"><i class="bi bi-info-circle text-primary me-2"></i>Download backups to secure off-site storage</li>
+            <li><i class="bi bi-info-circle text-primary me-2"></i>Total backups: <strong><%= files.length %></strong></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

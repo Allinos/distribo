@@ -1,0 +1,70 @@
+<div class="page-content">
+  <div class="page-header">
+    <div><h2 class="page-title">Categories</h2><p class="page-subtitle">Manage product and expense categories</p></div>
+    <div class="page-actions">
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#catModal" onclick="openAdd()">
+        <i class="bi bi-plus-lg me-2"></i>Add Category
+      </button>
+    </div>
+  </div>
+  <div class="card erp-card">
+    <div class="card-body p-0">
+      <table class="table table-hover erp-table mb-0">
+        <thead><tr><th>#</th><th>Name</th><th>Products</th><th>Expenses</th><th class="text-end">Actions</th></tr></thead>
+        <tbody>
+          <% if (!categories.length) { %><tr><td colspan="5" class="text-center py-4 text-muted">No categories</td></tr><% } %>
+          <% categories.forEach((c,i) => { %>
+          <tr>
+            <td class="text-muted"><%= i+1 %></td>
+            <td class="fw-medium"><%= c.name %></td>
+            <td><span class="badge bg-light text-dark border"><%= c._count.products %></span></td>
+            <td><span class="badge bg-light text-dark border"><%= c._count.expenses %></span></td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-primary me-1" onclick="editCat(<%= c.id %>, '<%= c.name %>')"><i class="bi bi-pencil"></i></button>
+              <form action="/categories/<%= c.id %>?_method=DELETE" method="POST" class="d-inline" onsubmit="return confirm('Delete category?')">
+                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="catModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="catModalTitle">Add Category</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <form id="catForm" method="POST" action="/categories">
+        <input type="hidden" name="_method" id="catMethod" value="POST">
+        <div class="modal-body">
+          <label class="form-label">Category Name <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="name" id="catName" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><span id="catSubmitText">Save</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+function openAdd() {
+  document.getElementById('catModalTitle').textContent = 'Add Category';
+  document.getElementById('catForm').action = '/categories';
+  document.getElementById('catMethod').value = 'POST';
+  document.getElementById('catSubmitText').textContent = 'Save';
+  document.getElementById('catName').value = '';
+}
+function editCat(id, name) {
+  document.getElementById('catModalTitle').textContent = 'Edit Category';
+  document.getElementById('catForm').action = `/categories/${id}`;
+  document.getElementById('catMethod').value = 'PUT';
+  document.getElementById('catSubmitText').textContent = 'Update';
+  document.getElementById('catName').value = name;
+  new bootstrap.Modal(document.getElementById('catModal')).show();
+}
+</script>

@@ -1,0 +1,66 @@
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon"><i class="bi bi-grid-3x3-gap-fill"></i></div>
+    <span class="brand-name"><%= appName %></span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">MAIN</div>
+    <ul class="nav flex-column">
+      <li class="nav-item">
+        <a href="/" class="nav-link <%= currentPath === '/' ? 'active' : '' %>">
+          <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="nav-section-label">INVENTORY</div>
+    <ul class="nav flex-column">
+      <li><a href="/warehouses" class="nav-link <%= currentPath.startsWith('/warehouses') ? 'active' : '' %>"><i class="bi bi-building"></i><span>Warehouses</span></a></li>
+      <li><a href="/products" class="nav-link <%= currentPath.startsWith('/products') ? 'active' : '' %>"><i class="bi bi-box-seam"></i><span>Products</span></a></li>
+      <li><a href="/categories" class="nav-link <%= currentPath.startsWith('/categories') ? 'active' : '' %>"><i class="bi bi-tags"></i><span>Categories</span></a></li>
+      <li><a href="/customers" class="nav-link <%= currentPath.startsWith('/customers') ? 'active' : '' %>"><i class="bi bi-people"></i><span>Customers</span></a></li>
+      <li><a href="/suppliers" class="nav-link <%= currentPath.startsWith('/suppliers') ? 'active' : '' %>"><i class="bi bi-truck"></i><span>Suppliers</span></a></li>
+      <li><a href="/batches" class="nav-link <%= currentPath.startsWith('/batches') ? 'active' : '' %>"><i class="bi bi-layers"></i><span>Batches & Expiry</span></a></li>
+    </ul>
+
+    <div class="nav-section-label">TRANSACTIONS</div>
+    <ul class="nav flex-column">
+      <li><a href="/sales" class="nav-link <%= currentPath.startsWith('/sales') ? 'active' : '' %>"><i class="bi bi-receipt"></i><span>Sales</span></a></li>
+      <li><a href="/purchases" class="nav-link <%= currentPath.startsWith('/purchases') ? 'active' : '' %>"><i class="bi bi-cart-check"></i><span>Purchases</span></a></li>
+      <li><a href="/expenses" class="nav-link <%= currentPath.startsWith('/expenses') ? 'active' : '' %>"><i class="bi bi-wallet2"></i><span>Expenses</span></a></li>
+      <li><a href="/returns" class="nav-link <%= currentPath.startsWith('/returns') ? 'active' : '' %>"><i class="bi bi-arrow-return-left"></i><span>Returns</span></a></li>
+      <li><a href="/writeoffs" class="nav-link <%= currentPath.startsWith('/writeoffs') ? 'active' : '' %>"><i class="bi bi-trash"></i><span>Write-offs</span></a></li>
+    </ul>
+
+    <div class="nav-section-label">FLEET</div>
+    <ul class="nav flex-column">
+      <li><a href="/vehicles" class="nav-link <%= currentPath === '/vehicles' || currentPath.startsWith('/vehicles/') && !currentPath.startsWith('/vehicles/sales') ? 'active' : '' %>"><i class="bi bi-truck-front"></i><span>Vehicles & Stock</span></a></li>
+      <li><a href="/vehicles/sales" class="nav-link <%= currentPath.startsWith('/vehicles/sales') ? 'active' : '' %>"><i class="bi bi-bag-check"></i><span>Van Sales</span></a></li>
+    </ul>
+
+    <% if (user && (user.role === 'ADMIN' || user.role === 'MANAGER')) { %>
+    <div class="nav-section-label">ADMIN</div>
+    <ul class="nav flex-column">
+      <% if (user.role === 'ADMIN') { %>
+      <li><a href="/users" class="nav-link <%= currentPath.startsWith('/users') ? 'active' : '' %>"><i class="bi bi-person-badge"></i><span>Users</span></a></li>
+      <li><a href="/settings" class="nav-link <%= currentPath.startsWith('/settings') ? 'active' : '' %>"><i class="bi bi-gear"></i><span>Settings</span></a></li>
+      <% } %>
+      <li><a href="/backup" class="nav-link <%= currentPath.startsWith('/backup') ? 'active' : '' %>"><i class="bi bi-cloud-arrow-up"></i><span>Backup</span></a></li>
+    </ul>
+    <% } %>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <div class="user-avatar"><%= user ? user.name.charAt(0).toUpperCase() : 'U' %></div>
+      <div class="user-details">
+        <div class="user-name"><%= user ? user.name : 'User' %></div>
+        <div class="user-role"><%= user ? user.role : '' %></div>
+      </div>
+      <a href="/auth/logout" class="ms-auto text-muted" title="Logout" style="text-decoration:none">
+        <i class="bi bi-box-arrow-right"></i>
+      </a>
+    </div>
+  </div>
+</aside>

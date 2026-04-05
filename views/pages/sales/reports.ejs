@@ -1,0 +1,594 @@
+<div class="page-content">
+
+  <!-- ── Header ────────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-bar-chart-line me-2 text-primary"></i>Sales Report</h2>
+      <p class="page-subtitle"><%= monthLabel %></p>
+    </div>
+    <div class="page-actions d-flex gap-2 align-items-center flex-wrap">
+      <!-- Month Selector -->
+      <form method="GET" class="d-flex gap-2 align-items-center">
+        <select class="form-select form-select-sm" name="month" id="monthSel" style="width:auto">
+          <% for(let m=1;m<=12;m++){ %>
+          <option value="<%= m %>" <%= m===month?'selected':'' %>>
+            <%= new Date(year,m-1,1).toLocaleString('default',{month:'long'}) %>
+          </option>
+          <% } %>
+        </select>
+        <select class="form-select form-select-sm" name="year" id="yearSel" style="width:90px">
+          <% for(let y=new Date().getFullYear(); y>=new Date().getFullYear()-4; y--){ %>
+          <option value="<%= y %>" <%= y===year?'selected':'' %>><%= y %></option>
+          <% } %>
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">Go</button>
+      </form>
+      <a href="/sales" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back to Sales
+      </a>
+      <button class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+        <i class="bi bi-printer me-1"></i>Print
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Summary Cards ────────────────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-purple">
+        <div class="rpt-icon"><i class="bi bi-collection"></i></div>
+        <div class="rpt-label">Total Sales</div>
+        <div class="rpt-value">₹<%= summary.combinedTotal.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+        <div class="rpt-sub"><%= summary.totalCount %> invoices</div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-blue">
+        <div class="rpt-icon"><i class="bi bi-receipt"></i></div>
+        <div class="rpt-label">Normal Sales</div>
+        <div class="rpt-value">₹<%= summary.normalTotal.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+        <div class="rpt-sub"><%= summary.normalCount %> invoices</div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-green">
+        <div class="rpt-icon"><i class="bi bi-truck"></i></div>
+        <div class="rpt-label">Van Sales</div>
+        <div class="rpt-value">₹<%= summary.vanTotal.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+        <div class="rpt-sub"><%= summary.vanCount %> sales</div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-red">
+        <div class="rpt-icon"><i class="bi bi-wallet2"></i></div>
+        <div class="rpt-label">Expenses</div>
+        <div class="rpt-value">₹<%= summary.expenses.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+        <div class="rpt-sub">this month</div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card <%= summary.profit >= 0 ? 'rpt-teal' : 'rpt-red' %>">
+        <div class="rpt-icon"><i class="bi bi-currency-rupee"></i></div>
+        <div class="rpt-label">Net Profit</div>
+        <div class="rpt-value">₹<%= summary.profit.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+        <div class="rpt-sub"><%= summary.profit >= 0 ? 'Profitable' : 'Loss' %></div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-orange">
+        <div class="rpt-icon"><i class="bi bi-percent"></i></div>
+        <div class="rpt-label">Tax Collected</div>
+        <div class="rpt-value">₹<%= summary.totalTax.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+        <div class="rpt-sub">Disc: ₹<%= summary.totalDiscount.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Calendar Heatmap + Daily Bar ──────────────────────────────────────── -->
+  <div class="row g-4 mb-4">
+
+    <!-- Calendar -->
+    <div class="col-xl-6">
+      <div class="card erp-card h-100">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-calendar3 me-2"></i>Sales Calendar — <%= monthLabel %></h5>
+          <small class="text-muted">Darker = higher sales</small>
+        </div>
+        <div class="card-body">
+          <div class="cal-grid">
+            <!-- Day headers -->
+            <% ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => { %>
+            <div class="cal-header"><%= d %></div>
+            <% }) %>
+            <!-- Empty cells before first day -->
+            <% for(let e=0; e<firstDayOfWeek; e++){ %>
+            <div class="cal-cell cal-empty"></div>
+            <% } %>
+            <!-- Day cells -->
+            <% dailyDataRaw.forEach(d => {
+              const pct = maxDailyTotal > 0 ? Math.round((d.total / maxDailyTotal) * 100) : 0;
+              const intensity = pct === 0 ? 0 : pct < 20 ? 1 : pct < 40 ? 2 : pct < 60 ? 3 : pct < 80 ? 4 : 5;
+            %>
+            <div class="cal-cell cal-day intensity-<%= intensity %>"
+              data-day="<%= d.day %>"
+              data-total="<%= d.total.toLocaleString('en-IN',{maximumFractionDigits:0}) %>"
+              data-count="<%= d.count %>"
+              data-normal="<%= d.normal.toLocaleString('en-IN',{maximumFractionDigits:0}) %>"
+              data-van="<%= d.van.toLocaleString('en-IN',{maximumFractionDigits:0}) %>"
+              onclick="scrollToDate(<%= d.day %>)">
+              <span class="cal-day-num"><%= d.day %></span>
+              <% if(d.total > 0){ %>
+              <span class="cal-day-amt">₹<%= d.total >= 1000 ? (d.total/1000).toFixed(1)+'k' : d.total.toFixed(0) %></span>
+              <% } %>
+            </div>
+            <% }) %>
+          </div>
+          <!-- Tooltip -->
+          <div id="calTooltip" class="cal-tooltip d-none"></div>
+          <!-- Legend -->
+          <div class="cal-legend mt-3">
+            <span class="text-muted small me-2">Low</span>
+            <div class="cal-legend-bar">
+              <div class="intensity-0"></div><div class="intensity-1"></div>
+              <div class="intensity-2"></div><div class="intensity-3"></div>
+              <div class="intensity-4"></div><div class="intensity-5"></div>
+            </div>
+            <span class="text-muted small ms-2">High</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daily Bar Chart -->
+    <div class="col-xl-6">
+      <div class="card erp-card h-100">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-bar-chart me-2"></i>Daily Sales</h5>
+          <div class="d-flex gap-2">
+            <span class="badge" style="background:#6366f1">Normal</span>
+            <span class="badge" style="background:#059669">Van</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <canvas id="dailyChart" style="max-height:260px"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Week-wise + Payment breakdown ────────────────────────────────────── -->
+  <div class="row g-4 mb-4">
+    <div class="col-xl-4">
+      <div class="card erp-card h-100">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-grid-3x3 me-2"></i>Week-wise Breakdown</h5></div>
+        <div class="card-body">
+          <canvas id="weekChart" style="max-height:200px"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-4">
+      <div class="card erp-card h-100">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-pie-chart me-2"></i>Payment Methods</h5></div>
+        <div class="card-body d-flex align-items-center justify-content-center">
+          <canvas id="paymentChart" style="max-height:200px"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-4">
+      <div class="card erp-card h-100">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-info-circle me-2"></i>Quick Stats</h5></div>
+        <div class="card-body">
+          <%
+            const dailyArr = dailyDataRaw;
+            const salesDays = dailyArr.filter(d => d.total > 0).length;
+            const avgPerDay = salesDays > 0 ? summary.combinedTotal / salesDays : 0;
+            const bestDay   = dailyArr.reduce((best, d) => d.total > best.total ? d : best, {day:0,total:0});
+            const avgPerInvoice = summary.totalCount > 0 ? summary.combinedTotal / summary.totalCount : 0;
+          %>
+          <ul class="list-unstyled rpt-stats-list">
+            <li><span>Days with sales</span><strong><%= salesDays %> / <%= daysInMonth %></strong></li>
+            <li><span>Avg sale / day</span><strong>₹<%= avgPerDay.toLocaleString('en-IN',{maximumFractionDigits:0}) %></strong></li>
+            <li><span>Avg per invoice</span><strong>₹<%= avgPerInvoice.toLocaleString('en-IN',{maximumFractionDigits:0}) %></strong></li>
+            <li><span>Best day</span><strong><%= bestDay.day > 0 ? bestDay.day + ' ' + new Date(year,month-1,bestDay.day).toLocaleString('default',{month:'short'}) : '—' %></strong></li>
+            <li><span>Best day amount</span><strong>₹<%= bestDay.total.toLocaleString('en-IN',{maximumFractionDigits:0}) %></strong></li>
+            <li><span>Van share</span><strong><%= summary.combinedTotal > 0 ? ((summary.vanTotal/summary.combinedTotal)*100).toFixed(1) : 0 %>%</strong></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Product-wise Sales ────────────────────────────────────────────────── -->
+  <div class="card erp-card mb-4">
+    <div class="card-header">
+      <h5 class="card-title"><i class="bi bi-box-seam me-2"></i>Product-wise Sales — <%= monthLabel %></h5>
+      <span class="badge bg-light text-dark border"><%= productSales.length %> products sold</span>
+    </div>
+    <div class="card-body p-0">
+      <% if (!productSales.length) { %>
+        <div class="empty-state py-4"><i class="bi bi-box fs-2 text-muted"></i><p class="mt-2 text-muted">No product sales this month</p></div>
+      <% } else { %>
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Product</th>
+              <th>Category</th>
+              <th>SKU</th>
+              <th class="text-center">Qty Sold</th>
+              <th class="text-end">Revenue</th>
+              <th style="width:200px">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% const maxRevenue = productSales[0]?.revenue || 1; %>
+            <% productSales.forEach((p, i) => { %>
+            <tr>
+              <td class="text-muted"><%= i+1 %></td>
+              <td class="fw-medium"><%= p.name %></td>
+              <td><span class="badge bg-light text-dark border"><%= p.category %></span></td>
+              <td><code class="sku-code"><%= p.sku %></code></td>
+              <td class="text-center fw-semibold"><%= p.qty %> <span class="text-muted small"><%= p.unit %></span></td>
+              <td class="text-end fw-bold">₹<%= p.revenue.toLocaleString('en-IN',{maximumFractionDigits:0}) %></td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="progress flex-fill" style="height:8px">
+                    <div class="progress-bar" style="width:<%= (p.revenue/maxRevenue*100).toFixed(1) %>%;background:var(--primary)"></div>
+                  </div>
+                  <small class="text-muted" style="width:38px;text-align:right"><%= ((p.revenue/summary.combinedTotal)*100).toFixed(1) %>%</small>
+                </div>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+          <tfoot>
+            <tr class="table-light fw-bold">
+              <td colspan="4">TOTAL</td>
+              <td class="text-center"><%= productSales.reduce((s,p)=>s+p.qty,0) %></td>
+              <td class="text-end">₹<%= productSales.reduce((s,p)=>s+p.revenue,0).toLocaleString('en-IN',{maximumFractionDigits:0}) %></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- ── Date-wise Sales Detail ────────────────────────────────────────────── -->
+  <div class="card erp-card">
+    <div class="card-header">
+      <h5 class="card-title"><i class="bi bi-calendar-week me-2"></i>Date-wise Sales Detail</h5>
+      <input type="text" class="form-control form-control-sm w-auto" id="dateSearch"
+        placeholder="Search invoice / customer..." oninput="filterDateTable(this.value)">
+    </div>
+    <div class="card-body p-0" id="dateTableContainer">
+      <% if (!Object.keys(byDate).length) { %>
+        <div class="empty-state py-4"><i class="bi bi-calendar-x fs-2 text-muted"></i><p class="mt-2 text-muted">No sales this month</p></div>
+      <% } else { %>
+      <%
+        // Sort dates descending
+        const sortedDates = Object.values(byDate).sort((a,b) => {
+          const [da,ma,ya] = a.dateKey.split(' ');
+          const [db,mb,yb] = b.dateKey.split(' ');
+          return new Date(`${ma} ${da} ${ya}`) - new Date(`${mb} ${db} ${yb}`);
+        });
+      %>
+      <% sortedDates.forEach(dateGroup => { %>
+      <div class="date-group" data-date="<%= dateGroup.dateKey %>">
+        <!-- Date header row -->
+        <div class="date-group-header" onclick="toggleDateGroup(this)">
+          <div class="d-flex align-items-center gap-3">
+            <div class="date-badge">
+              <div class="date-badge-day"><%= dateGroup.dateKey.split(' ')[0] %></div>
+              <div class="date-badge-month"><%= dateGroup.dateKey.split(' ')[1] %></div>
+            </div>
+            <div>
+              <div class="fw-semibold"><%= dateGroup.dateKey %></div>
+              <small class="text-muted"><%= dateGroup.count %> sale<%= dateGroup.count!==1?'s':'' %></small>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-3">
+            <div class="fw-bold text-primary">₹<%= dateGroup.total.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+            <i class="bi bi-chevron-down date-chevron"></i>
+          </div>
+        </div>
+        <!-- Sales rows for this date -->
+        <div class="date-group-body">
+          <div class="table-responsive">
+            <table class="table table-hover erp-table mb-0 table-sm">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Invoice #</th>
+                  <th>Customer</th>
+                  <th>Vehicle</th>
+                  <th>Items</th>
+                  <th>Subtotal</th>
+                  <th>Tax</th>
+                  <th>Discount</th>
+                  <th>Total</th>
+                  <th>Payment</th>
+                  <th>Status</th>
+                  <th>By</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% dateGroup.sales.forEach(s => { %>
+                <tr class="sale-row" data-invoice="<%= s.invoiceNo.toLowerCase() %>" data-customer="<%= (s.customer ? s.customer.name : 'walk-in').toLowerCase() %>">
+                  <td>
+                    <% if(s._type==='van'){ %>
+                      <span class="badge" style="background:#059669;font-size:.65rem"><i class="bi bi-truck"></i> Van</span>
+                    <% } else { %>
+                      <span class="badge bg-primary" style="font-size:.65rem"><i class="bi bi-receipt"></i> Normal</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <% if(s._type==='normal'){ %>
+                      <a href="/sales/<%= s.id %>" class="fw-medium text-primary invoice-link small"><%= s.invoiceNo %></a>
+                    <% } else { %>
+                      <span class="fw-medium invoice-link small" style="color:#059669"><%= s.invoiceNo %></span>
+                    <% } %>
+                  </td>
+                  <td class="small text-muted"><%= s.customer ? s.customer.name : 'Walk-in' %></td>
+                  <td class="small text-muted"><%= s._type==='van' && s.vehicle ? s.vehicle.name : '—' %></td>
+                  <td>
+                    <span class="badge bg-light text-dark border" title="<%= s.items.map(i=>i.product.name+' ×'+i.quantity).join(', ') %>">
+                      <%= s.items.length %> items
+                    </span>
+                  </td>
+                  <td class="small">₹<%= parseFloat(s.subtotal).toLocaleString('en-IN',{maximumFractionDigits:0}) %></td>
+                  <td class="small text-muted">₹<%= parseFloat(s.taxAmount).toLocaleString('en-IN',{maximumFractionDigits:0}) %></td>
+                  <td class="small text-muted">₹<%= parseFloat(s.discount).toLocaleString('en-IN',{maximumFractionDigits:0}) %></td>
+                  <td class="fw-semibold small">₹<%= parseFloat(s.total).toLocaleString('en-IN',{maximumFractionDigits:0}) %></td>
+                  <td><span class="badge bg-light text-dark border" style="font-size:.65rem"><%= s.paymentMode %></span></td>
+                  <td>
+                    <span class="badge bg-<%= s.status==='PAID'?'success':s.status==='CANCELLED'?'danger':'warning' %>" style="font-size:.65rem">
+                      <%= s.status %>
+                    </span>
+                  </td>
+                  <td class="small text-muted"><%= s.user ? s.user.name : '—' %></td>
+                </tr>
+                <% }) %>
+              </tbody>
+              <!-- Date subtotal -->
+              <tfoot>
+                <tr class="table-light">
+                  <td colspan="8" class="text-end fw-semibold small">Day Total:</td>
+                  <td class="fw-bold text-primary small">₹<%= dateGroup.total.toLocaleString('en-IN',{maximumFractionDigits:0}) %></td>
+                  <td colspan="3"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+      <% }) %>
+      <% } %>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Styles ──────────────────────────────────────────────────────────────── -->
+<style>
+/* Summary cards */
+.rpt-card {
+  border-radius: 12px; padding: 1rem 1.1rem;
+  display: flex; flex-direction: column; gap: .2rem;
+  border-left: 4px solid transparent; background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  transition: box-shadow .2s;
+}
+.rpt-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.1); }
+.rpt-icon { font-size: 1.3rem; margin-bottom: .2rem; }
+.rpt-label { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #64748b; }
+.rpt-value { font-size: 1.25rem; font-weight: 800; line-height: 1.2; }
+.rpt-sub { font-size: .72rem; color: #94a3b8; }
+
+.rpt-purple { border-color: #7c3aed; }  .rpt-purple .rpt-icon,.rpt-purple .rpt-value { color: #7c3aed; }
+.rpt-blue   { border-color: #2563eb; }  .rpt-blue   .rpt-icon,.rpt-blue   .rpt-value { color: #2563eb; }
+.rpt-green  { border-color: #059669; }  .rpt-green  .rpt-icon,.rpt-green  .rpt-value { color: #059669; }
+.rpt-red    { border-color: #dc2626; }  .rpt-red    .rpt-icon,.rpt-red    .rpt-value { color: #dc2626; }
+.rpt-teal   { border-color: #0891b2; }  .rpt-teal   .rpt-icon,.rpt-teal   .rpt-value { color: #0891b2; }
+.rpt-orange { border-color: #d97706; }  .rpt-orange .rpt-icon,.rpt-orange .rpt-value { color: #d97706; }
+
+/* Calendar grid */
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7,1fr); gap: 4px;
+}
+.cal-header {
+  text-align: center; font-size: .65rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: #94a3b8; padding: 4px 0;
+}
+.cal-cell { border-radius: 8px; min-height: 52px; position: relative; cursor: pointer; transition: transform .15s; }
+.cal-cell:hover { transform: scale(1.06); z-index: 2; }
+.cal-empty { background: transparent !important; cursor: default; }
+.cal-empty:hover { transform: none; }
+.cal-day-num { position: absolute; top: 4px; left: 6px; font-size: .72rem; font-weight: 600; }
+.cal-day-amt { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: .6rem; font-weight: 700; }
+
+/* intensity levels */
+.intensity-0 { background: #f1f5f9; }        .intensity-0 .cal-day-num { color: #94a3b8; }
+.intensity-1 { background: #dbeafe; }        .intensity-1 .cal-day-num { color: #1e40af; }
+.intensity-2 { background: #93c5fd; }        .intensity-2 .cal-day-num { color: #1e3a8a; }
+.intensity-3 { background: #6366f1; }        .intensity-3 .cal-day-num,.intensity-3 .cal-day-amt { color: #fff; }
+.intensity-4 { background: #4338ca; }        .intensity-4 .cal-day-num,.intensity-4 .cal-day-amt { color: #fff; }
+.intensity-5 { background: #1e1b4b; }        .intensity-5 .cal-day-num,.intensity-5 .cal-day-amt { color: #a5b4fc; }
+
+.cal-legend { display: flex; align-items: center; }
+.cal-legend-bar { display: flex; gap: 3px; flex: 1; }
+.cal-legend-bar > div { height: 12px; flex: 1; border-radius: 3px; }
+
+.cal-tooltip {
+  position: fixed; background: #1e293b; color: #fff;
+  padding: .5rem .75rem; border-radius: 8px; font-size: .8rem;
+  pointer-events: none; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,.3);
+  white-space: nowrap;
+}
+
+/* Quick stats */
+.rpt-stats-list li {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .5rem 0; border-bottom: 1px dashed #e2e8f0; font-size: .85rem;
+}
+.rpt-stats-list li:last-child { border-bottom: none; }
+.rpt-stats-list li span { color: #64748b; }
+
+/* Date group */
+.date-group { border-bottom: 2px solid #f1f5f9; }
+.date-group:last-child { border-bottom: none; }
+.date-group-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .875rem 1.25rem; cursor: pointer; background: #fafbfc;
+  transition: background .15s;
+}
+.date-group-header:hover { background: #f1f5f9; }
+.date-group-body { display: none; }
+.date-group-body.open { display: block; }
+.date-badge {
+  width: 44px; height: 44px; border-radius: 10px;
+  background: linear-gradient(135deg,#4f46e5,#818cf8);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; flex-shrink: 0;
+}
+.date-badge-day { color: #fff; font-size: 1.1rem; font-weight: 800; line-height: 1; }
+.date-badge-month { color: #c7d2fe; font-size: .6rem; font-weight: 600; text-transform: uppercase; }
+.date-chevron { transition: transform .2s; color: #94a3b8; }
+.date-group-header.open .date-chevron { transform: rotate(180deg); }
+
+/* Today highlight */
+.cal-day.today { outline: 2px solid #f59e0b; outline-offset: 1px; }
+
+@media print {
+  .page-header .page-actions, .app-header, .sidebar, .app-footer { display: none !important; }
+  .main-content { margin-left: 0 !important; }
+  .date-group-body { display: block !important; }
+}
+</style>
+
+<!-- ── Scripts ─────────────────────────────────────────────────────────────── -->
+<script>
+(function () {
+  const dailyData = <%- dailyData %>;
+  const weekData  = <%- weekData %>;
+  const payData   = <%- paymentBreakdown %>;
+
+  // ── Daily stacked bar chart ───────────────────────────────────────────────
+  new Chart(document.getElementById('dailyChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: dailyData.map(d => d.day),
+      datasets: [
+        { label: 'Normal', data: dailyData.map(d => d.normal), backgroundColor: 'rgba(99,102,241,.8)', borderRadius: 3, stack: 'sales' },
+        { label: 'Van',    data: dailyData.map(d => d.van),    backgroundColor: 'rgba(5,150,105,.8)',   borderRadius: 3, stack: 'sales' },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' } }
+      }
+    }
+  });
+
+  // ── Week chart ───────────────────────────────────────────────────────────
+  new Chart(document.getElementById('weekChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: weekData.map(w => w.label),
+      datasets: [{ label: 'Sales', data: weekData.map(w => w.total), backgroundColor: ['#6366f1','#4f46e5','#4338ca','#3730a3'], borderRadius: 6 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' } }, x: { grid: { display: false } } }
+    }
+  });
+
+  // ── Payment doughnut ─────────────────────────────────────────────────────
+  new Chart(document.getElementById('paymentChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: payData.length ? payData.map(p => p.mode) : ['No Data'],
+      datasets: [{ data: payData.length ? payData.map(p => p.total) : [1], backgroundColor: ['#6366f1','#059669','#f59e0b','#ef4444','#3b82f6'], borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, cutout: '60%' }
+  });
+
+  // ── Calendar tooltip ────────────────────────────────────────────────────
+  const tooltip = document.getElementById('calTooltip');
+  document.querySelectorAll('.cal-day').forEach(cell => {
+    cell.addEventListener('mouseenter', function (e) {
+      const day     = this.dataset.day;
+      const total   = this.dataset.total;
+      const count   = this.dataset.count;
+      const normal  = this.dataset.normal;
+      const van     = this.dataset.van;
+      tooltip.innerHTML = `<strong>${day} <%= monthLabel %></strong><br>
+        Total: ₹${total} (${count} sale${count!=1?'s':''})<br>
+        Normal: ₹${normal} · Van: ₹${van}`;
+      tooltip.classList.remove('d-none');
+    });
+    cell.addEventListener('mousemove', function (e) {
+      tooltip.style.left = (e.clientX + 14) + 'px';
+      tooltip.style.top  = (e.clientY - 10) + 'px';
+    });
+    cell.addEventListener('mouseleave', () => tooltip.classList.add('d-none'));
+  });
+
+  // Highlight today
+  const today = new Date();
+  if (today.getFullYear() === <%= year %> && today.getMonth() + 1 === <%= month %>) {
+    const todayCell = document.querySelector(`.cal-day[data-day="${today.getDate()}"]`);
+    if (todayCell) todayCell.classList.add('today');
+  }
+})();
+
+// ── Date group toggle ──────────────────────────────────────────────────────
+function toggleDateGroup(header) {
+  const body = header.nextElementSibling;
+  header.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+// Open all groups by default
+document.querySelectorAll('.date-group-header').forEach(h => {
+  h.classList.add('open');
+  h.nextElementSibling.classList.add('open');
+});
+
+// ── Scroll to a date group when clicking a calendar cell ─────────────────
+function scrollToDate(day) {
+  const dateStr = new Date(<%= year %>, <%= month %> - 1, day)
+    .toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const groups = document.querySelectorAll('.date-group');
+  for (const g of groups) {
+    if (g.dataset.date === dateStr) {
+      g.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      g.style.transition = 'background .3s';
+      g.style.background = '#ede9fe';
+      setTimeout(() => g.style.background = '', 1200);
+      return;
+    }
+  }
+}
+
+// ── Search / filter date table ────────────────────────────────────────────
+function filterDateTable(val) {
+  const q = val.toLowerCase().trim();
+  document.querySelectorAll('.date-group').forEach(group => {
+    let groupVisible = false;
+    group.querySelectorAll('.sale-row').forEach(row => {
+      const match = !q || row.dataset.invoice.includes(q) || row.dataset.customer.includes(q);
+      row.style.display = match ? '' : 'none';
+      if (match) groupVisible = true;
+    });
+    group.style.display = groupVisible ? '' : 'none';
+  });
+}
+</script>

@@ -1,0 +1,352 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Dashboard</h2>
+      <p class="page-subtitle">Welcome back, <%= user.name %>! Here's what's happening this month.</p>
+    </div>
+    <div class="page-actions">
+      <a href="/vehicles/sales/new" class="btn btn-outline-success me-2">
+        <i class="bi bi-truck me-2"></i>Van Sale
+      </a>
+      <a href="/sales/new" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-2"></i>New Invoice
+      </a>
+    </div>
+  </div>
+
+  <!-- Expiry Alerts -->
+  <% if (typeof expiredBatchCount !== 'undefined' && expiredBatchCount > 0) { %>
+  <div class="alert alert-danger d-flex align-items-center gap-3 mb-3 shadow-sm">
+    <i class="bi bi-x-octagon-fill fs-4 flex-shrink-0"></i>
+    <div class="flex-fill">
+      <strong><%= expiredBatchCount %> batch<%= expiredBatchCount > 1 ? 'es' : '' %> have EXPIRED</strong> with stock remaining.
+      Write off expired products to keep inventory accurate.
+    </div>
+    <a href="/batches?filter=expired" class="btn btn-sm btn-danger flex-shrink-0">View Expired</a>
+    <a href="/writeoffs/new" class="btn btn-sm btn-outline-light flex-shrink-0">Write Off</a>
+  </div>
+  <% } %>
+  <% if (typeof expiringBatches !== 'undefined' && expiringBatches.length > 0) { %>
+  <div class="alert alert-warning d-flex align-items-start gap-3 mb-3 shadow-sm">
+    <i class="bi bi-exclamation-triangle-fill fs-4 flex-shrink-0 mt-1"></i>
+    <div class="flex-fill">
+      <div class="fw-semibold mb-1"><%= expiringBatches.length %> batch<%= expiringBatches.length > 1 ? 'es' : '' %> expiring within 60 days</div>
+      <div class="d-flex flex-wrap gap-2">
+        <% expiringBatches.forEach(b => {
+          const days = Math.ceil((new Date(b.expiryDate) - new Date()) / (1000*60*60*24));
+        %>
+        <span class="badge bg-warning text-dark" style="font-size:.78rem">
+          <%= b.product.name %> — <%= days %>d left
+        </span>
+        <% }) %>
+      </div>
+    </div>
+    <a href="/batches?filter=expiring" class="btn btn-sm btn-warning flex-shrink-0">View All</a>
+  </div>
+  <% } %>
+
+  <!-- KPI Cards Row 1: Sales split -->
+  <div class="row g-4 mb-3">
+    <!-- Combined Sales -->
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card stat-card-primary">
+        <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Total Sales</div>
+          <div class="stat-value">₹<%= stats.sales.toLocaleString('en-IN') %></div>
+          <div class="stat-change <%= stats.salesGrowth >= 0 ? 'positive' : 'negative' %>">
+            <i class="bi bi-arrow-<%= stats.salesGrowth >= 0 ? 'up' : 'down' %>-right"></i>
+            <%= Math.abs(stats.salesGrowth) %>% vs last month
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Normal Sales -->
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card" style="border-left:4px solid #6366f1;background:#fff">
+        <div class="stat-icon" style="background:#ede9fe;color:#6366f1"><i class="bi bi-receipt"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Normal Sales</div>
+          <div class="stat-value" style="font-size:1.25rem">₹<%= stats.normalSales.toLocaleString('en-IN') %></div>
+          <div class="stat-change neutral">
+            <i class="bi bi-file-text me-1"></i><%= stats.normalCount %> invoices
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Van Sales -->
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card" style="border-left:4px solid #059669;background:#fff">
+        <div class="stat-icon" style="background:#d1fae5;color:#059669"><i class="bi bi-truck"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Van Sales</div>
+          <div class="stat-value" style="font-size:1.25rem">₹<%= stats.vanSales.toLocaleString('en-IN') %></div>
+          <div class="stat-change neutral">
+            <i class="bi bi-truck-front me-1"></i><%= stats.vanCount %> sales
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expenses -->
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card stat-card-danger">
+        <div class="stat-icon"><i class="bi bi-wallet2"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Expenses</div>
+          <div class="stat-value">₹<%= stats.expenses.toLocaleString('en-IN') %></div>
+          <div class="stat-change <%= stats.expensesGrowth <= 0 ? 'positive' : 'negative' %>">
+            <i class="bi bi-arrow-<%= stats.expensesGrowth <= 0 ? 'down' : 'up' %>-right"></i>
+            <%= Math.abs(stats.expensesGrowth) %>% vs last month
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Cards Row 2 -->
+  <div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card stat-card-success">
+        <div class="stat-icon"><i class="bi bi-currency-rupee"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Net Profit</div>
+          <div class="stat-value <%= stats.profit < 0 ? 'text-danger' : '' %>">₹<%= stats.profit.toLocaleString('en-IN') %></div>
+          <div class="stat-change neutral">
+            <i class="bi bi-collection me-1"></i><%= stats.salesCount %> total sales
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card stat-card-warning">
+        <div class="stat-icon"><i class="bi bi-box-seam"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Products</div>
+          <div class="stat-value"><%= stats.totalProducts %></div>
+          <div class="stat-change neutral"><i class="bi bi-people me-1"></i><%= stats.totalCustomers %> customers</div>
+        </div>
+      </div>
+    </div>
+    <!-- Sales split mini progress -->
+    <div class="col-xl-6 col-md-12">
+      <div class="card erp-card h-100">
+        <div class="card-body d-flex flex-column justify-content-center py-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="small fw-medium text-muted">Sales Breakdown</span>
+            <span class="small text-muted">₹<%= stats.sales.toLocaleString('en-IN') %> total</span>
+          </div>
+          <%
+            const totalForBar = stats.sales || 1;
+            const normalPct = Math.round((stats.normalSales / totalForBar) * 100);
+            const vanPct    = 100 - normalPct;
+          %>
+          <div class="progress" style="height:20px;border-radius:8px">
+            <div class="progress-bar" style="width:<%= normalPct %>%;background:#6366f1;border-radius:8px 0 0 8px"
+              title="Normal: ₹<%= stats.normalSales.toLocaleString('en-IN') %>">
+              <% if (normalPct > 12) { %><span class="small"><i class="bi bi-receipt me-1"></i><%= normalPct %>%</span><% } %>
+            </div>
+            <div class="progress-bar" style="width:<%= vanPct %>%;background:#059669;border-radius:0 8px 8px 0"
+              title="Van: ₹<%= stats.vanSales.toLocaleString('en-IN') %>">
+              <% if (vanPct > 12) { %><span class="small"><i class="bi bi-truck me-1"></i><%= vanPct %>%</span><% } %>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between mt-2">
+            <span class="small"><span class="badge me-1" style="background:#6366f1">Normal</span>₹<%= stats.normalSales.toLocaleString('en-IN') %></span>
+            <span class="small"><span class="badge me-1" style="background:#059669">Van</span>₹<%= stats.vanSales.toLocaleString('en-IN') %></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="row g-4 mb-4">
+    <div class="col-xl-8">
+      <div class="card erp-card h-100">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-bar-chart-line me-2"></i>Revenue Overview</h5>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="badge" style="background:#6366f1">Normal</span>
+            <span class="badge" style="background:#059669">Van</span>
+            <span class="text-muted small ms-1">Last 6 months</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <canvas id="revenueChart" height="100"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-4">
+      <div class="card erp-card h-100">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-pie-chart me-2"></i>Payment Methods</h5>
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center">
+          <canvas id="paymentChart" style="max-height:240px"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Row -->
+  <div class="row g-4">
+    <!-- Low Stock -->
+    <div class="col-xl-6">
+      <div class="card erp-card">
+        <div class="card-header">
+          <h5 class="card-title">
+            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Low Stock Alert
+          </h5>
+          <a href="/products" class="btn btn-sm btn-outline-primary">View All</a>
+        </div>
+        <div class="card-body p-0">
+          <% if (!lowStockProducts.length) { %>
+            <div class="empty-state py-4">
+              <i class="bi bi-check-circle-fill text-success fs-2"></i>
+              <p class="mt-2 mb-0 text-muted">All products are well stocked!</p>
+            </div>
+          <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead><tr><th>Product</th><th>SKU</th><th>Stock</th><th>Min</th><th>Status</th></tr></thead>
+              <tbody>
+                <% lowStockProducts.forEach(p => { %>
+                <tr>
+                  <td class="fw-medium"><%= p.name %></td>
+                  <td><code class="text-muted small"><%= p.sku %></code></td>
+                  <td><span class="text-danger fw-semibold"><%= p.stock %></span></td>
+                  <td class="text-muted"><%= p.min_stock %></td>
+                  <td>
+                    <span class="badge bg-<%= p.stock === 0 ? 'danger' : 'warning text-dark' %>">
+                      <%= p.stock === 0 ? 'Out of Stock' : 'Low Stock' %>
+                    </span>
+                  </td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Sales (combined) -->
+    <div class="col-xl-6">
+      <div class="card erp-card">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-receipt me-2"></i>Recent Sales</h5>
+          <a href="/sales" class="btn btn-sm btn-outline-primary">View All</a>
+        </div>
+        <div class="card-body p-0">
+          <% if (!recentSales.length) { %>
+            <div class="empty-state py-4">
+              <i class="bi bi-receipt fs-2 text-muted"></i>
+              <p class="mt-2 mb-0 text-muted">No sales yet</p>
+            </div>
+          <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead><tr><th>Type</th><th>Invoice</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+              <tbody>
+                <% recentSales.forEach(s => { %>
+                <tr>
+                  <td>
+                    <% if (s.type === 'van') { %>
+                      <span class="badge" style="background:#059669"><i class="bi bi-truck"></i></span>
+                    <% } else { %>
+                      <span class="badge bg-primary"><i class="bi bi-receipt"></i></span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <% if (s.type === 'normal') { %>
+                      <a href="/sales/<%= s.id %>" class="fw-medium text-primary invoice-link"><%= s.invoiceNo %></a>
+                    <% } else { %>
+                      <span class="fw-medium invoice-link" style="color:#059669"><%= s.invoiceNo %></span>
+                    <% } %>
+                  </td>
+                  <td class="text-muted"><%= s.customer ? s.customer.name : 'Walk-in' %></td>
+                  <td class="fw-semibold">₹<%= parseFloat(s.total).toLocaleString('en-IN') %></td>
+                  <td>
+                    <span class="badge bg-<%= s.status === 'PAID' ? 'success' : s.status === 'CANCELLED' ? 'danger' : 'warning' %>">
+                      <%= s.status %>
+                    </span>
+                  </td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const chartData     = <%- chartData %>;
+  const paymentData   = <%- paymentBreakdown %>;
+
+  // Revenue Chart — stacked bars (normal + van) + profit line
+  const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+  new Chart(revenueCtx, {
+    data: {
+      labels: chartData.map(d => d.month),
+      datasets: [
+        {
+          type: 'bar', label: 'Normal Sales',
+          data: chartData.map(d => d.normal),
+          backgroundColor: 'rgba(99,102,241,0.8)',
+          borderRadius: 4, stack: 'sales'
+        },
+        {
+          type: 'bar', label: 'Van Sales',
+          data: chartData.map(d => d.van),
+          backgroundColor: 'rgba(5,150,105,0.8)',
+          borderRadius: 4, stack: 'sales'
+        },
+        {
+          type: 'bar', label: 'Expenses',
+          data: chartData.map(d => d.expenses),
+          backgroundColor: 'rgba(239,68,68,0.65)',
+          borderRadius: 4, stack: 'expenses'
+        },
+        {
+          type: 'line', label: 'Profit',
+          data: chartData.map(d => d.profit),
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245,158,11,0.08)',
+          borderWidth: 2, fill: true, tension: 0.4,
+          pointBackgroundColor: '#f59e0b', pointRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // Payment doughnut
+  const payCtx = document.getElementById('paymentChart').getContext('2d');
+  const labels = paymentData.map(p => p.paymentMode || p._sum);
+  const vals   = paymentData.map(p => parseFloat(p.total || p._sum?.total || 0));
+  new Chart(payCtx, {
+    type: 'doughnut',
+    data: {
+      labels: labels.length ? labels : ['No Data'],
+      datasets: [{ data: vals.length ? vals : [1], backgroundColor: ['#6366f1','#22c55e','#f59e0b','#ef4444','#3b82f6'], borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
+  });
+})();
+</script>

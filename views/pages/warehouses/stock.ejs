@@ -1,0 +1,176 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-building me-2 text-primary"></i><%= warehouse.name %></h2>
+      <p class="page-subtitle">
+        <% if (warehouse.location) { %><i class="bi bi-geo-alt me-1"></i><%= warehouse.location %> · <% } %>
+        <%= stockRows.length %> products tracked
+      </p>
+    </div>
+    <div class="page-actions">
+      <a href="/warehouses" class="btn btn-outline-secondary me-2"><i class="bi bi-arrow-left me-2"></i>Back</a>
+      <a href="/warehouses/transfers/new" class="btn btn-outline-primary me-2">
+        <i class="bi bi-arrow-left-right me-2"></i>Transfer Stock
+      </a>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#adjustModal">
+        <i class="bi bi-sliders me-2"></i>Adjust Stock
+      </button>
+    </div>
+  </div>
+
+  <!-- Warehouse Switcher -->
+  <div class="d-flex gap-2 mb-4 flex-wrap">
+    <% warehouses.forEach(w => { %>
+    <a href="/warehouses/<%= w.id %>/stock"
+       class="btn btn-sm <%= w.id === warehouse.id ? 'btn-primary' : 'btn-outline-secondary' %>">
+      <i class="bi bi-building me-1"></i><%= w.name %>
+      <% if (w.isDefault) { %><span class="badge bg-light text-dark ms-1">Default</span><% } %>
+    </a>
+    <% }) %>
+  </div>
+
+  <!-- Filters -->
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" class="row g-3 align-items-end">
+        <div class="col-md-6">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" name="search" value="<%= search %>" placeholder="Product name or SKU...">
+          </div>
+        </div>
+        <div class="col-md-3">
+          <select class="form-select" name="category">
+            <option value="">All Categories</option>
+            <% categories.forEach(c => { %>
+            <option value="<%= c.id %>" <%= category == c.id ? 'selected' : '' %>><%= c.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">Filter</button>
+          <a href="/warehouses/<%= warehouse.id %>/stock" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Stock Table -->
+  <div class="card erp-card">
+    <div class="card-header">
+      <h5 class="card-title"><i class="bi bi-box-seam me-2"></i>Inventory</h5>
+      <div class="d-flex gap-2 align-items-center">
+        <span class="badge bg-success"><%= stockRows.filter(r => r.quantity > 0).length %> in stock</span>
+        <span class="badge bg-danger"><%= stockRows.filter(r => r.quantity === 0).length %> out of stock</span>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>SKU</th>
+              <th>Category</th>
+              <th class="text-center">Warehouse Stock</th>
+              <th class="text-center">Total Stock</th>
+              <th class="text-end">Value</th>
+              <th>Status</th>
+              <th class="text-end">Adjust</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!stockRows.length) { %>
+            <tr><td colspan="8" class="text-center py-5 text-muted"><i class="bi bi-inbox fs-2 d-block mb-2"></i>No products found</td></tr>
+            <% } %>
+            <% stockRows.forEach(row => { %>
+            <tr class="<%= row.quantity === 0 ? 'table-danger bg-opacity-10' : '' %>">
+              <td class="fw-medium"><%= row.product.name %></td>
+              <td><code class="sku-code"><%= row.product.sku %></code></td>
+              <td><span class="badge bg-light text-dark border"><%= row.product.category.name %></span></td>
+              <td class="text-center">
+                <span class="fw-bold <%= row.quantity === 0 ? 'text-danger' : row.quantity <= row.product.minStock ? 'text-warning' : 'text-success' %>">
+                  <%= row.quantity %> <%= row.product.unit %>
+                </span>
+              </td>
+              <td class="text-center text-muted"><%= row.product.stock %> <%= row.product.unit %></td>
+              <td class="text-end text-muted small">₹<%= (row.quantity * parseFloat(row.product.price)).toLocaleString('en-IN', {minimumFractionDigits:0}) %></td>
+              <td>
+                <% if (row.quantity === 0) { %>
+                  <span class="badge bg-danger">Out of Stock</span>
+                <% } else if (row.quantity <= row.product.minStock) { %>
+                  <span class="badge bg-warning text-dark">Low Stock</span>
+                <% } else { %>
+                  <span class="badge bg-success">In Stock</span>
+                <% } %>
+              </td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-secondary"
+                  onclick="openAdjust(<%= row.productId %>, '<%= row.product.name %>', <%= row.quantity %>)">
+                  <i class="bi bi-sliders"></i>
+                </button>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted">
+        Total Stock Value:
+        <strong>₹<%= stockRows.reduce((sum,r) => sum + r.quantity * parseFloat(r.product.price), 0).toLocaleString('en-IN', {minimumFractionDigits:0}) %></strong>
+      </small>
+    </div>
+  </div>
+</div>
+
+<!-- Adjust Stock Modal -->
+<div class="modal fade" id="adjustModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Adjust Stock</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form action="/warehouses/<%= warehouse.id %>/stock/adjust" method="POST">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Product</label>
+            <select class="form-select" name="productId" id="adjustProductId" required>
+              <option value="">Select product...</option>
+              <% stockRows.forEach(row => { %>
+              <option value="<%= row.productId %>"><%= row.product.name %> (current: <%= row.quantity %>)</option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Mode</label>
+            <select class="form-select" name="mode" id="adjustMode">
+              <option value="add">➕ Add to stock</option>
+              <option value="subtract">➖ Subtract from stock</option>
+              <option value="set">🔄 Set exact quantity</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-medium">Quantity</label>
+            <input type="number" class="form-control" name="quantity" id="adjustQty" min="0" required value="0">
+          </div>
+          <div id="adjustInfo" class="text-muted small"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Apply Adjustment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openAdjust(productId, name, currentQty) {
+  document.getElementById('adjustProductId').value = productId;
+  document.getElementById('adjustInfo').textContent = `Current stock for "${name}": ${currentQty}`;
+  new bootstrap.Modal(document.getElementById('adjustModal')).show();
+}
+</script>

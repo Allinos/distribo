@@ -1,0 +1,159 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Vehicles</h2>
+      <p class="page-subtitle">Manage fleet and van stock</p>
+    </div>
+    <div class="page-actions">
+      <a href="/vehicles/sales" class="btn btn-outline-primary me-2">
+        <i class="bi bi-receipt me-2"></i>Van Sales
+      </a>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#vehicleModal" onclick="openAdd()">
+        <i class="bi bi-plus-lg me-2"></i>Add Vehicle
+      </button>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <% if (!vehicles.length) { %>
+    <div class="col-12">
+      <div class="card erp-card">
+        <div class="card-body empty-state py-5">
+          <i class="bi bi-truck fs-2 text-muted"></i>
+          <p class="mt-2 text-muted">No vehicles yet. Add your first vehicle to get started.</p>
+        </div>
+      </div>
+    </div>
+    <% } %>
+
+    <% vehicles.forEach(v => { %>
+    <div class="col-xl-4 col-md-6">
+      <div class="card erp-card vehicle-card">
+        <div class="card-header">
+          <div class="d-flex align-items-center gap-2">
+            <div class="vehicle-icon"><i class="bi bi-truck"></i></div>
+            <div>
+              <div class="fw-semibold"><%= v.name %></div>
+              <code class="sku-code"><%= v.regNo %></code>
+            </div>
+          </div>
+          <div class="d-flex gap-1">
+            <button class="btn btn-sm btn-outline-primary" onclick='editVehicle(<%- JSON.stringify({id: v.id, name: v.name, regNo: v.regNo, driverId: v.driverId}) %>)' title="Edit"><i class="bi bi-pencil"></i></button>
+            <a href="/vehicles/<%= v.id %>/stock" class="btn btn-sm btn-outline-success" title="Manage Stock"><i class="bi bi-box-seam"></i></a>
+          </div>
+        </div>
+        <div class="card-body">
+          <!-- Driver -->
+          <div class="vehicle-detail-row mb-2">
+            <span class="text-muted small"><i class="bi bi-person me-1"></i>Driver</span>
+            <span class="fw-medium small"><%= v.driver ? v.driver.name : '<span class="text-muted">Unassigned</span>' %></span>
+          </div>
+          <!-- Sales count -->
+          <div class="vehicle-detail-row mb-3">
+            <span class="text-muted small"><i class="bi bi-receipt me-1"></i>Total Sales</span>
+            <span class="badge bg-light text-dark border"><%= v._count.vanSales %> sales</span>
+          </div>
+          <!-- Stock summary -->
+          <% if (v.stocks.length > 0) { %>
+          <div class="mt-2">
+            <div class="text-muted small mb-2 fw-medium">CURRENT STOCK (<%= v.stocks.length %> products)</div>
+            <div class="vehicle-stock-list">
+              <% v.stocks.slice(0, 4).forEach(s => { %>
+              <div class="vehicle-stock-item">
+                <span class="fw-medium small"><%= s.product.name %></span>
+                <span class="badge bg-<%= s.quantity > 0 ? 'primary' : 'danger' %>"><%= s.quantity %> <%= s.product.unit %></span>
+              </div>
+              <% }) %>
+              <% if (v.stocks.length > 4) { %>
+              <div class="text-muted small text-center mt-1">+<%= v.stocks.length - 4 %> more products</div>
+              <% } %>
+            </div>
+          </div>
+          <% } else { %>
+          <div class="text-muted small text-center py-2">
+            <i class="bi bi-inbox me-1"></i>No stock assigned
+          </div>
+          <% } %>
+        </div>
+        <div class="card-footer d-flex gap-2">
+          <a href="/vehicles/<%= v.id %>/stock" class="btn btn-sm btn-primary flex-fill">
+            <i class="bi bi-box-seam me-1"></i>Manage Stock
+          </a>
+          <a href="/vehicles/sales/new?vehicleId=<%= v.id %>" class="btn btn-sm btn-success flex-fill">
+            <i class="bi bi-plus me-1"></i>New Sale
+          </a>
+        </div>
+      </div>
+    </div>
+    <% }) %>
+  </div>
+</div>
+
+<!-- Vehicle Modal -->
+<div class="modal fade" id="vehicleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="vehicleModalTitle">Add Vehicle</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="vehicleForm" method="POST" action="/vehicles">
+        <input type="hidden" name="_method" id="vehicleMethod" value="POST">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Vehicle Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" name="name" id="vName" required placeholder="e.g. Van 1, Truck A">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Registration No. <span class="text-danger">*</span></label>
+              <input type="text" class="form-control font-mono" name="regNo" id="vRegNo" required placeholder="KA01AB1234">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Assign Driver</label>
+              <select class="form-select" name="driverId" id="vDriver">
+                <option value="">— No driver —</option>
+                <% users.forEach(u => { %>
+                  <option value="<%= u.id %>"><%= u.name %> (<%= u.role %>)</option>
+                <% }) %>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-2"></i><span id="vehicleSubmitText">Save Vehicle</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+.vehicle-card { transition: box-shadow 0.2s; }
+.vehicle-card:hover { box-shadow: var(--shadow); }
+.vehicle-icon { width: 40px; height: 40px; background: var(--primary-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 1.2rem; flex-shrink: 0; }
+.vehicle-detail-row { display: flex; justify-content: space-between; align-items: center; }
+.vehicle-stock-list { display: flex; flex-direction: column; gap: 4px; }
+.vehicle-stock-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: #f8fafc; border-radius: 6px; font-size: 0.82rem; }
+</style>
+
+<script>
+function openAdd() {
+  document.getElementById('vehicleModalTitle').textContent = 'Add Vehicle';
+  document.getElementById('vehicleForm').action = '/vehicles';
+  document.getElementById('vehicleMethod').value = 'POST';
+  document.getElementById('vehicleSubmitText').textContent = 'Save Vehicle';
+  document.getElementById('vehicleForm').reset();
+}
+function editVehicle(v) {
+  document.getElementById('vehicleModalTitle').textContent = 'Edit Vehicle';
+  document.getElementById('vehicleForm').action = `/vehicles/${v.id}`;
+  document.getElementById('vehicleMethod').value = 'PUT';
+  document.getElementById('vehicleSubmitText').textContent = 'Update Vehicle';
+  document.getElementById('vName').value = v.name;
+  document.getElementById('vRegNo').value = v.regNo;
+  document.getElementById('vDriver').value = v.driverId || '';
+  new bootstrap.Modal(document.getElementById('vehicleModal')).show();
+}
+</script>

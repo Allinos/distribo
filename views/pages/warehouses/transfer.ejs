@@ -1,0 +1,229 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Stock Transfer</h2>
+      <p class="page-subtitle">Move inventory between warehouses</p>
+    </div>
+    <div class="page-actions">
+      <a href="/warehouses" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Back</a>
+    </div>
+  </div>
+
+  <div id="tfrAlert" class="d-none mb-3"></div>
+
+  <div class="row g-4">
+    <!-- Transfer Form -->
+    <div class="col-xl-5">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-arrow-left-right me-2"></i>New Transfer</h5></div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-medium">From Warehouse <span class="text-danger">*</span></label>
+            <select class="form-select" id="fromWarehouse" onchange="loadSourceStock()">
+              <option value="">— Select source —</option>
+              <% warehouses.forEach(w => { %>
+              <option value="<%= w.id %>"><%= w.name %><% if (w.location) { %> (<%= w.location %>)<% } %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium">To Warehouse <span class="text-danger">*</span></label>
+            <select class="form-select" id="toWarehouse">
+              <option value="">— Select destination —</option>
+              <% warehouses.forEach(w => { %>
+              <option value="<%= w.id %>"><%= w.name %><% if (w.location) { %> (<%= w.location %>)<% } %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <!-- Product Search -->
+          <div class="mb-3" id="productSearchRow" style="display:none">
+            <label class="form-label fw-medium">Add Products</label>
+            <div class="input-group" style="position:relative">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control" id="productSearch" placeholder="Search products in source warehouse...">
+            </div>
+            <div id="productDropdown" class="product-dropdown d-none"></div>
+          </div>
+
+          <!-- Items Table -->
+          <div id="itemsSection" style="display:none">
+            <div class="table-responsive mb-3">
+              <table class="table erp-table table-sm">
+                <thead><tr><th>Product</th><th style="width:100px">Qty</th><th style="width:90px">Available</th><th style="width:40px"></th></tr></thead>
+                <tbody id="transferItems">
+                  <tr id="emptyRow"><td colspan="4" class="text-center text-muted py-3 small">Add products above</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-medium">Notes</label>
+              <textarea class="form-control form-control-sm" id="tfrNotes" rows="2"></textarea>
+            </div>
+            <button class="btn btn-primary w-100" onclick="submitTransfer()">
+              <span class="btn-text"><i class="bi bi-check-circle me-2"></i>Complete Transfer</span>
+              <span class="btn-loader d-none"><span class="spinner-border spinner-border-sm me-2"></span>Processing...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transfer History -->
+    <div class="col-xl-7">
+      <div class="card erp-card">
+        <div class="card-header">
+          <h5 class="card-title"><i class="bi bi-clock-history me-2"></i>Transfer History</h5>
+          <span class="badge bg-light text-dark border"><%= transfers.length %> transfers</span>
+        </div>
+        <div class="card-body p-0">
+          <% if (!transfers.length) { %>
+          <div class="empty-state py-4"><i class="bi bi-arrow-left-right fs-2 text-muted"></i><p class="mt-2 text-muted">No transfers yet</p></div>
+          <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover erp-table mb-0">
+              <thead><tr><th>Transfer #</th><th>From</th><th>To</th><th>Items</th><th>Date</th><th>Status</th></tr></thead>
+              <tbody>
+                <% transfers.forEach(t => { %>
+                <tr>
+                  <td><span class="fw-medium invoice-link"><%= t.transferNo %></span></td>
+                  <td>
+                    <div class="fw-medium small"><%= t.fromWarehouse.name %></div>
+                  </td>
+                  <td>
+                    <div class="fw-medium small"><%= t.toWarehouse.name %></div>
+                  </td>
+                  <td>
+                    <div class="small text-muted">
+                      <% t.items.slice(0,2).forEach(i => { %>
+                      <%= i.product.name %> × <%= i.quantity %><br>
+                      <% }) %>
+                      <% if (t.items.length > 2) { %>+<%= t.items.length - 2 %> more<% } %>
+                    </div>
+                  </td>
+                  <td class="text-muted small"><%= new Date(t.transferDate).toLocaleDateString('en-IN') %></td>
+                  <td><span class="badge bg-<%= t.status === 'COMPLETED' ? 'success' : t.status === 'CANCELLED' ? 'danger' : 'warning' %>"><%= t.status %></span></td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let transferItems = [];
+let sourceStock = [];
+
+async function loadSourceStock() {
+  const fromId = document.getElementById('fromWarehouse').value;
+  if (!fromId) {
+    document.getElementById('productSearchRow').style.display = 'none';
+    document.getElementById('itemsSection').style.display = 'none';
+    return;
+  }
+  try {
+    const res = await fetch(`/warehouses/api/${fromId}/stock`);
+    sourceStock = await res.json();
+    document.getElementById('productSearchRow').style.display = '';
+    document.getElementById('itemsSection').style.display = '';
+    transferItems = [];
+    renderItems();
+  } catch { showAlert('danger', 'Failed to load warehouse stock.'); }
+}
+
+let searchTimeout;
+document.getElementById('productSearch').addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  const q = this.value.trim().toLowerCase();
+  if (q.length < 1) { document.getElementById('productDropdown').classList.add('d-none'); return; }
+  const filtered = sourceStock.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
+  const dd = document.getElementById('productDropdown');
+  dd.innerHTML = filtered.length
+    ? filtered.map(p => `<div class="dropdown-item product-item" onclick='addItem(${JSON.stringify(p)})'><div class="d-flex justify-content-between"><div><div class="fw-medium">${p.name}</div><small class="text-muted">${p.sku}</small></div><span class="badge bg-primary">${p.warehouseStock} ${p.unit}</span></div></div>`).join('')
+    : '<div class="dropdown-item text-muted">No products found in this warehouse</div>';
+  dd.classList.remove('d-none');
+});
+
+function addItem(p) {
+  document.getElementById('productDropdown').classList.add('d-none');
+  document.getElementById('productSearch').value = '';
+  if (transferItems.find(i => i.productId === p.id)) return;
+  transferItems.push({ productId: p.id, name: p.name, sku: p.sku, available: p.warehouseStock, unit: p.unit, qty: 1 });
+  renderItems();
+}
+
+function renderItems() {
+  const tbody = document.getElementById('transferItems');
+  document.getElementById('emptyRow')?.remove();
+  if (!transferItems.length) {
+    tbody.innerHTML = '<tr id="emptyRow"><td colspan="4" class="text-center text-muted py-3 small">Add products above</td></tr>';
+    return;
+  }
+  tbody.innerHTML = transferItems.map((item, idx) => `
+    <tr>
+      <td><div class="fw-medium small">${item.name}</div><small class="text-muted">${item.sku}</small></td>
+      <td><input type="number" class="form-control form-control-sm" value="${item.qty}" min="1" max="${item.available}" onchange="updateQty(${idx},this.value)" style="width:70px"></td>
+      <td class="text-muted small text-center">${item.available} ${item.unit}</td>
+      <td><button class="btn btn-sm btn-outline-danger p-1" onclick="removeItem(${idx})"><i class="bi bi-x"></i></button></td>
+    </tr>`).join('');
+}
+
+function updateQty(idx, v) { transferItems[idx].qty = Math.max(1, Math.min(parseInt(v)||1, transferItems[idx].available)); renderItems(); }
+function removeItem(idx)  { transferItems.splice(idx,1); renderItems(); }
+
+async function submitTransfer() {
+  const fromId = document.getElementById('fromWarehouse').value;
+  const toId   = document.getElementById('toWarehouse').value;
+  if (!fromId || !toId) return showAlert('danger', 'Select both source and destination warehouses.');
+  if (fromId === toId)  return showAlert('danger', 'Source and destination must be different.');
+  if (!transferItems.length) return showAlert('danger', 'Add at least one product.');
+
+  const btn = document.querySelector('[onclick="submitTransfer()"]');
+  btn.querySelector('.btn-text').classList.add('d-none');
+  btn.querySelector('.btn-loader').classList.remove('d-none');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/warehouses/transfers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fromWarehouseId: fromId, toWarehouseId: toId,
+        notes: document.getElementById('tfrNotes').value,
+        items: transferItems.map(i => ({ productId: i.productId, quantity: i.qty }))
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showAlert('success', data.message);
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showAlert('danger', data.message);
+      btn.querySelector('.btn-text').classList.remove('d-none');
+      btn.querySelector('.btn-loader').classList.add('d-none');
+      btn.disabled = false;
+    }
+  } catch {
+    showAlert('danger', 'Network error.');
+    btn.querySelector('.btn-text').classList.remove('d-none');
+    btn.querySelector('.btn-loader').classList.add('d-none');
+    btn.disabled = false;
+  }
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('tfrAlert');
+  el.className = `alert alert-${type}`;
+  el.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':'exclamation-triangle'}-fill me-2"></i>${msg}`;
+  el.classList.remove('d-none');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#productSearch') && !e.target.closest('#productDropdown'))
+    document.getElementById('productDropdown').classList.add('d-none');
+});
+</script>

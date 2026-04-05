@@ -1,0 +1,499 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Activation {
+  id            Int       @id @default(autoincrement())
+  applicationId String    @unique @map("application_id")
+  licenseKey    String    @map("license_key")
+  isActive      Boolean   @default(false) @map("is_active")
+  activatedAt   DateTime? @map("activated_at")
+  expiresAt     DateTime? @map("expires_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  @@map("activations")
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  password  String
+  role      Role      @default(STAFF)
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  sales            Sale[]           @relation("SaleCreator")
+  salesUpdated     Sale[]           @relation("SaleUpdater")
+  expenses         Expense[]
+  vanSales         VanSale[]        @relation("VanSaleCreator")
+  vanSalesUpdated  VanSale[]        @relation("VanSaleUpdater")
+  purchases        Purchase[]       @relation("PurchaseCreator")
+  purchasesUpdated Purchase[]       @relation("PurchaseUpdater")
+  vehicle          Vehicle?         @relation("VehicleDriver")
+  returns          SaleReturn[]
+  writeoffs        StockWriteoff[]
+  @@map("users")
+}
+
+enum Role { 
+  ADMIN
+   MANAGER
+    STAFF
+     }
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  products  Product[]
+  expenses  Expense[]
+  @@map("categories")
+}
+
+model Product {
+  id           Int            @id @default(autoincrement())
+  name         String
+  sku          String         @unique
+  categoryId   Int            @map("category_id")
+  price        Decimal        @db.Decimal(10, 2)
+  costPrice    Decimal        @default(0) @db.Decimal(10, 2) @map("cost_price")
+  tax          Decimal        @default(0) @db.Decimal(5, 2)
+  stock        Int            @default(0)
+  avgCostPrice Decimal        @default(0) @db.Decimal(10, 2) @map("avg_cost_price")
+  minStock     Int            @default(5) @map("min_stock")
+  unit         String         @default("pcs")
+  // Box/bundle conversion
+  boxUnit      String?        @map("box_unit")          // e.g. "box"
+  pcsPerBox    Int?           @default(1) @map("pcs_per_box")  // e.g. 10
+  isActive     Boolean        @default(true) @map("is_active")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  category     Category       @relation(fields: [categoryId], references: [id])
+  saleItems    SaleItem[]
+  purchaseItems PurchaseItem[]
+  vehicleStocks VehicleStock[]
+  vanSaleItems  VanSaleItem[]
+  warehouseStocks WarehouseStock[]
+  transferItems   StockTransferItem[]
+  batches         ProductBatch[]
+  returnItems     SaleReturnItem[]
+  writeoffItems   StockWriteoffItem[]
+  @@map("products")
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String?
+  phone     String?
+  address   String?  @db.Text
+  gstin     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  sales     Sale[]
+  vanSales  VanSale[]
+  @@map("customers")
+}
+
+model Sale {
+  id          Int         @id @default(autoincrement())
+  invoiceNo   String      @unique @map("invoice_no")
+  customerId  Int?        @map("customer_id")
+  userId      Int         @map("user_id")
+  warehouseId Int?        @map("warehouse_id")
+  subtotal    Decimal     @db.Decimal(10, 2)
+  taxAmount   Decimal     @default(0) @db.Decimal(10, 2) @map("tax_amount")
+  discount    Decimal     @default(0) @db.Decimal(10, 2)
+  total       Decimal     @db.Decimal(10, 2)
+  paymentMode PaymentMode @default(CASH) @map("payment_mode")
+  status      SaleStatus  @default(PAID)
+  notes       String?     @db.Text
+  saleDate    DateTime    @default(now()) @map("sale_date")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  updatedById Int?        @map("updated_by_id")
+  customer    Customer?   @relation(fields: [customerId], references: [id])
+  user        User        @relation("SaleCreator",  fields: [userId],      references: [id])
+  updatedBy   User?       @relation("SaleUpdater",  fields: [updatedById], references: [id])
+  warehouse   Warehouse?  @relation(fields: [warehouseId], references: [id])
+  items       SaleItem[]
+  returns     SaleReturn[]
+  @@map("sales")
+}
+
+enum PaymentMode { 
+  CASH 
+  CARD 
+  UPI 
+  BANK_TRANSFER 
+  CREDIT 
+  }
+enum SaleStatus  { 
+  PAID 
+  PARTIAL 
+  UNPAID 
+  CANCELLED 
+  }
+
+model SaleItem {
+  id        Int     @id @default(autoincrement())
+  saleId    Int     @map("sale_id")
+  productId Int     @map("product_id")
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  costPrice Decimal @default(0) @db.Decimal(10, 2) @map("cost_price")
+  tax       Decimal @default(0) @db.Decimal(5, 2)
+  total     Decimal @db.Decimal(10, 2)
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+  @@map("sale_items")
+}
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  title       String
+  categoryId  Int      @map("category_id")
+  userId      Int      @map("user_id")
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime
+  description String?  @db.Text
+  attachment  String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  category    Category @relation(fields: [categoryId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+  @@map("expenses")
+}
+
+model Backup {
+  id        Int      @id @default(autoincrement())
+  filename  String
+  size      Int?
+  status    String   @default("completed")
+  createdBy Int?     @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("backups")
+}
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("settings")
+}
+
+// ── Suppliers & Purchases ──────────────────────────────────────────────────────
+
+model Supplier {
+  id        Int        @id @default(autoincrement())
+  name      String
+  phone     String?
+  email     String?
+  gstin     String?
+  address   String?    @db.Text
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  purchases Purchase[]
+  @@map("suppliers")
+}
+
+model Purchase {
+  id         Int            @id @default(autoincrement())
+  poNo       String         @unique @map("po_no")
+  supplierId Int            @map("supplier_id")
+  userId     Int            @map("user_id")
+  warehouseId Int?          @map("warehouse_id")
+  subtotal   Decimal        @db.Decimal(10, 2)
+  taxAmount  Decimal        @default(0) @db.Decimal(10, 2) @map("tax_amount")
+  total      Decimal        @db.Decimal(10, 2)
+  status     PurchaseStatus @default(RECEIVED)
+  notes      String?        @db.Text
+  purchaseDate DateTime     @default(now()) @map("purchase_date")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+  updatedById Int?          @map("updated_by_id")
+  supplier   Supplier       @relation(fields: [supplierId], references: [id])
+  warehouse  Warehouse?     @relation(fields: [warehouseId], references: [id])
+  user       User           @relation("PurchaseCreator", fields: [userId], references: [id])
+  updatedBy  User?          @relation("PurchaseUpdater", fields: [updatedById], references: [id])
+  items      PurchaseItem[]
+  @@map("purchases")
+}
+
+enum PurchaseStatus { 
+  ORDERED 
+  RECEIVED 
+  PARTIAL 
+  CANCELLED 
+ }
+
+model PurchaseItem {
+  id         Int      @id @default(autoincrement())
+  purchaseId Int      @map("purchase_id")
+  productId  Int      @map("product_id")
+  quantity   Int
+  price      Decimal  @db.Decimal(10, 2)
+  tax        Decimal  @default(0) @db.Decimal(5, 2)
+  total      Decimal  @db.Decimal(10, 2)
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id])
+  @@map("purchase_items")
+}
+
+// ── Vehicles / Van Sales ───────────────────────────────────────────────────────
+
+model Vehicle {
+  id          Int            @id @default(autoincrement())
+  name        String
+  regNo       String         @unique @map("reg_no")
+  driverId    Int?           @unique @map("driver_id")
+  isActive    Boolean        @default(true) @map("is_active")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  driver      User?          @relation("VehicleDriver", fields: [driverId], references: [id])
+  stocks      VehicleStock[]
+  vanSales    VanSale[]
+  @@map("vehicles")
+}
+
+model VehicleStock {
+  id         Int      @id @default(autoincrement())
+  vehicleId  Int      @map("vehicle_id")
+  productId  Int      @map("product_id")
+  quantity   Int      @default(0)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
+  @@unique([vehicleId, productId])
+  @@map("vehicle_stocks")
+}
+
+model VanSale {
+  id          Int           @id @default(autoincrement())
+  invoiceNo   String        @unique @map("invoice_no")
+  vehicleId   Int           @map("vehicle_id")
+  customerId  Int?          @map("customer_id")
+  userId      Int           @map("user_id")
+  subtotal    Decimal       @db.Decimal(10, 2)
+  taxAmount   Decimal       @default(0) @db.Decimal(10, 2) @map("tax_amount")
+  discount    Decimal       @default(0) @db.Decimal(10, 2)
+  total       Decimal       @db.Decimal(10, 2)
+  paymentMode PaymentMode   @default(CASH) @map("payment_mode")
+  status      SaleStatus    @default(PAID)
+  notes       String?       @db.Text
+  saleDate    DateTime      @default(now()) @map("sale_date")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  updatedById Int?          @map("updated_by_id")
+  vehicle     Vehicle       @relation(fields: [vehicleId], references: [id])
+  customer    Customer?     @relation(fields: [customerId], references: [id])
+  user        User          @relation("VanSaleCreator",  fields: [userId],      references: [id])
+  updatedBy   User?         @relation("VanSaleUpdater",  fields: [updatedById], references: [id])
+  items       VanSaleItem[]
+  @@map("van_sales")
+}
+
+model VanSaleItem {
+  id        Int     @id @default(autoincrement())
+  vanSaleId Int     @map("van_sale_id")
+  productId Int     @map("product_id")
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  costPrice Decimal @default(0) @db.Decimal(10, 2) @map("cost_price")
+  tax       Decimal @default(0) @db.Decimal(5, 2)
+  total     Decimal @db.Decimal(10, 2)
+  vanSale   VanSale @relation(fields: [vanSaleId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+  @@map("van_sale_items")
+}
+
+// ── Warehouses ─────────────────────────────────────────────────────────────────
+
+model Warehouse {
+  id          Int               @id @default(autoincrement())
+  name        String
+  location    String?
+  description String?           @db.Text
+  isDefault   Boolean           @default(false) @map("is_default")
+  isActive    Boolean           @default(true)  @map("is_active")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt      @map("updated_at")
+
+  stocks      WarehouseStock[]
+  sales       Sale[]
+  purchases   Purchase[]
+  transfersOut StockTransfer[]  @relation("TransferFrom")
+  transfersIn  StockTransfer[]  @relation("TransferTo")
+  batches     ProductBatch[]
+  returns     SaleReturn[]
+  writeoffs   StockWriteoff[]
+
+  @@map("warehouses")
+}
+
+model WarehouseStock {
+  id          Int       @id @default(autoincrement())
+  warehouseId Int       @map("warehouse_id")
+  productId   Int       @map("product_id")
+  quantity    Int       @default(0)
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@unique([warehouseId, productId])
+  @@map("warehouse_stocks")
+}
+
+model StockTransfer {
+  id             Int              @id @default(autoincrement())
+  transferNo     String           @unique @map("transfer_no")
+  fromWarehouseId Int             @map("from_warehouse_id")
+  toWarehouseId   Int             @map("to_warehouse_id")
+  userId          Int             @map("user_id")
+  status          TransferStatus  @default(COMPLETED)
+  notes           String?         @db.Text
+  transferDate    DateTime        @default(now()) @map("transfer_date")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt      @map("updated_at")
+
+  fromWarehouse  Warehouse        @relation("TransferFrom", fields: [fromWarehouseId], references: [id])
+  toWarehouse    Warehouse        @relation("TransferTo",   fields: [toWarehouseId],   references: [id])
+  items          StockTransferItem[]
+
+  @@map("stock_transfers")
+}
+
+enum TransferStatus { 
+  PENDING 
+  COMPLETED 
+  CANCELLED 
+  }
+
+model StockTransferItem {
+  id           Int           @id @default(autoincrement())
+  transferId   Int           @map("transfer_id")
+  productId    Int           @map("product_id")
+  quantity     Int
+  transfer     StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  product      Product       @relation(fields: [productId], references: [id])
+
+  @@map("stock_transfer_items")
+}
+
+
+// ── Product Batches (expiry tracking) ──────────────────────────────────────
+
+model ProductBatch {
+  id           Int       @id @default(autoincrement())
+  productId    Int       @map("product_id")
+  warehouseId  Int?      @map("warehouse_id")
+  batchNo      String?   @map("batch_no")
+  quantity     Int       @default(0)
+  costPrice    Decimal   @db.Decimal(10,2) @map("cost_price")
+  mfgDate      DateTime? @map("mfg_date")
+  expiryDate   DateTime? @map("expiry_date")
+  notes        String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  product      Product    @relation(fields: [productId], references: [id])
+  warehouse    Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  @@map("product_batches")
+}
+
+// ── Sale Returns ───────────────────────────────────────────────────────────
+
+model SaleReturn {
+  id           Int       @id @default(autoincrement())
+  returnNo     String    @unique @map("return_no")
+  saleId       Int       @map("sale_id")
+  userId       Int       @map("user_id")
+  warehouseId  Int?      @map("warehouse_id")
+  reason       String?   @db.Text
+  refundMode   String?   @map("refund_mode")
+  refundAmount Decimal   @default(0) @db.Decimal(10,2) @map("refund_amount")
+  status       ReturnStatus @default(COMPLETED)
+  notes        String?   @db.Text
+  returnDate   DateTime  @default(now()) @map("return_date")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  sale         Sale       @relation(fields: [saleId], references: [id])
+  user         User       @relation(fields: [userId], references: [id])
+  warehouse    Warehouse? @relation(fields: [warehouseId], references: [id])
+  items        SaleReturnItem[]
+
+  @@map("sale_returns")
+}
+
+enum ReturnStatus { 
+  COMPLETED 
+  PARTIAL 
+  CANCELLED 
+ }
+
+model SaleReturnItem {
+  id         Int       @id @default(autoincrement())
+  returnId   Int       @map("return_id")
+  productId  Int       @map("product_id")
+  quantity   Int
+  price      Decimal   @db.Decimal(10,2)
+  total      Decimal   @db.Decimal(10,2)
+
+  return     SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@map("sale_return_items")
+}
+
+// ── Stock Write-offs (internal use / damage / expiry) ──────────────────────
+
+model StockWriteoff {
+  id          Int             @id @default(autoincrement())
+  writeoffNo  String          @unique @map("writeoff_no")
+  userId      Int             @map("user_id")
+  warehouseId Int?            @map("warehouse_id")
+  reason      WriteoffReason
+  notes       String?         @db.Text
+  writeoffDate DateTime       @default(now()) @map("writeoff_date")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  user        User       @relation(fields: [userId], references: [id])
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+  items       StockWriteoffItem[]
+
+  @@map("stock_writeoffs")
+}
+
+enum WriteoffReason { 
+  INTERNAL_USE 
+  DAMAGED 
+  EXPIRED 
+  SAMPLE 
+  LOST 
+  OTHER 
+  }
+
+model StockWriteoffItem {
+  id          Int           @id @default(autoincrement())
+  writeoffId  Int           @map("writeoff_id")
+  productId   Int           @map("product_id")
+  quantity    Int
+  costValue   Decimal       @default(0) @db.Decimal(10,2) @map("cost_value")
+
+  writeoff    StockWriteoff @relation(fields: [writeoffId], references: [id], onDelete: Cascade)
+  product     Product       @relation(fields: [productId], references: [id])
+
+  @@map("stock_writeoff_items")
+}

@@ -1,0 +1,114 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Purchase Order: <%= purchase.poNo %></h2>
+      <p class="page-subtitle"><%= new Date(purchase.purchaseDate).toLocaleDateString('en-IN', {dateStyle:'long'}) %></p>
+    </div>
+    <div class="page-actions">
+      <a href="/purchases" class="btn btn-outline-secondary me-2"><i class="bi bi-arrow-left me-2"></i>Back</a>
+      <button class="btn btn-outline-primary me-2" onclick="window.print()"><i class="bi bi-printer me-2"></i>Print</button>
+      <% if (purchase.status !== 'CANCELLED') { %>
+      <form action="/purchases/<%= purchase.id %>/cancel" method="POST" class="d-inline" onsubmit="return confirm('Cancel this PO?')">
+        <button class="btn btn-outline-danger"><i class="bi bi-x-circle me-2"></i>Cancel</button>
+      </form>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="invoice-wrapper">
+    <div class="invoice-doc">
+      <div class="invoice-header">
+        <div class="invoice-company">
+          <div class="company-logo-text"><i class="bi bi-truck"></i></div>
+          <div>
+            <h2 class="company-name">Purchase Order</h2>
+            <p class="company-sub">Stock Receipt</p>
+          </div>
+        </div>
+        <div class="invoice-meta">
+          <h1 class="invoice-number">PO</h1>
+          <div class="invoice-details">
+            <div class="detail-row"><span class="detail-label">PO Number</span><span class="detail-value fw-bold"><%= purchase.poNo %></span></div>
+            <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value"><%= new Date(purchase.purchaseDate).toLocaleDateString('en-IN') %></span></div>
+            <% if (purchase.updatedBy) { %>
+            <div class="detail-row">
+              <span class="detail-label">Updated By</span>
+              <span class="detail-value"><%= purchase.updatedBy.name %></span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Updated At</span>
+              <span class="detail-value"><%= new Date(purchase.updatedAt).toLocaleString('en-IN') %></span>
+            </div>
+            <% } %>
+            <div class="detail-row"><span class="detail-label">Status</span>
+              <span class="detail-value">
+                <span class="badge bg-<%= purchase.status === 'RECEIVED' ? 'success' : purchase.status === 'CANCELLED' ? 'danger' : 'warning' %>"><%= purchase.status %></span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="invoice-bill-to">
+        <div class="bill-section">
+          <h6 class="bill-title">SUPPLIER</h6>
+          <div class="bill-name"><%= purchase.supplier.name %></div>
+          <% if (purchase.supplier.phone) { %><div class="bill-detail"><i class="bi bi-telephone me-1"></i><%= purchase.supplier.phone %></div><% } %>
+          <% if (purchase.supplier.email) { %><div class="bill-detail"><i class="bi bi-envelope me-1"></i><%= purchase.supplier.email %></div><% } %>
+          <% if (purchase.supplier.gstin) { %><div class="bill-detail"><strong>GSTIN:</strong> <%= purchase.supplier.gstin %></div><% } %>
+          <% if (purchase.supplier.address) { %><div class="bill-detail"><i class="bi bi-geo-alt me-1"></i><%= purchase.supplier.address %></div><% } %>
+        </div>
+      </div>
+
+      <div class="invoice-items">
+        <table class="table invoice-table">
+          <thead>
+            <tr><th>#</th><th>Product</th><th>Category</th><th class="text-center">Qty</th><th class="text-end">Unit Cost</th><th class="text-center">Tax</th><th class="text-end">Total</th></tr>
+          </thead>
+          <tbody>
+            <% purchase.items.forEach((item, idx) => { %>
+            <tr>
+              <td><%= idx + 1 %></td>
+              <td><div class="fw-medium"><%= item.product.name %></div><small class="text-muted"><%= item.product.sku %></small></td>
+              <td class="text-muted small"><%= item.product.category?.name || '—' %></td>
+              <td class="text-center"><%= item.quantity %> <%= item.product.unit %></td>
+              <td class="text-end">₹<%= parseFloat(item.price).toLocaleString('en-IN', {minimumFractionDigits:2}) %></td>
+              <td class="text-center text-muted"><%= item.tax %>%</td>
+              <td class="text-end fw-semibold">₹<%= parseFloat(item.total).toLocaleString('en-IN', {minimumFractionDigits:2}) %></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="invoice-totals">
+        <div class="totals-table">
+          <div class="total-row"><span>Subtotal</span><span>₹<%= parseFloat(purchase.subtotal).toLocaleString('en-IN', {minimumFractionDigits:2}) %></span></div>
+          <div class="total-row"><span>Tax</span><span>₹<%= parseFloat(purchase.taxAmount).toLocaleString('en-IN', {minimumFractionDigits:2}) %></span></div>
+          <div class="total-row total-grand"><span>TOTAL</span><span>₹<%= parseFloat(purchase.total).toLocaleString('en-IN', {minimumFractionDigits:2}) %></span></div>
+        </div>
+      </div>
+
+      <% if (purchase.notes) { %>
+      <div class="invoice-notes"><strong>Notes:</strong> <%= purchase.notes %></div>
+      <% } %>
+
+      <div class="invoice-footer-note">
+        <% if (purchase.status === 'RECEIVED') { %>
+          <p><i class="bi bi-check-circle-fill text-success me-2"></i>Stock has been added to warehouse inventory.</p>
+        <% } else if (purchase.status === 'CANCELLED') { %>
+          <p><i class="bi bi-x-circle-fill text-danger me-2"></i>This purchase order has been cancelled.</p>
+        <% } else { %>
+          <p><i class="bi bi-clock-fill text-warning me-2"></i>Stock will be added once status is marked Received.</p>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+@media print {
+  .no-print, .app-header, .sidebar, .app-footer, .page-header .page-actions { display: none !important; }
+  .main-content { margin-left: 0 !important; }
+  .invoice-doc { box-shadow: none; border: none; }
+}
+</style>

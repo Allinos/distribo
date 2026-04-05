@@ -1,0 +1,184 @@
+<div class="page-content">
+  <div class="page-header no-print">
+    <div>
+      <h2 class="page-title">Invoice <%= sale.invoiceNo %></h2>
+      <p class="page-subtitle"><%= new Date(sale.saleDate).toLocaleDateString('en-IN', {dateStyle:'long'}) %></p>
+    </div>
+    <div class="page-actions">
+      <a href="/sales" class="btn btn-outline-secondary no-print me-2">
+        <i class="bi bi-arrow-left me-2"></i>Back
+      </a>
+      <button class="btn btn-outline-primary no-print me-2" onclick="window.print()">
+        <i class="bi bi-printer me-2"></i>Print
+      </button>
+      <% if (sale.status !== 'CANCELLED') { %>
+      <a href="/returns/new?invoice=<%= sale.invoiceNo %>" class="btn btn-outline-warning no-print me-2">
+        <i class="bi bi-arrow-return-left me-2"></i>Process Return
+      </a>
+      <% } %>
+      <% if (sale.status !== 'CANCELLED') { %>
+      <a href="/sales/<%= sale.id %>/edit" class="btn btn-outline-warning no-print me-2">
+        <i class="bi bi-pencil me-2"></i>Edit
+      </a>
+      <form action="/sales/<%= sale.id %>/cancel" method="POST" class="d-inline no-print me-2"
+        onsubmit="return confirm('Cancel invoice and restore stock?')">
+        <button class="btn btn-outline-secondary">
+          <i class="bi bi-x-circle me-2"></i>Cancel
+        </button>
+      </form>
+      <% } %>
+      <% if (user && user.role === 'ADMIN') { %>
+      <form action="/sales/<%= sale.id %>?_method=DELETE" method="POST" class="d-inline no-print"
+        onsubmit="return confirm('Permanently delete this invoice? Stock will be restored.')">
+        <button class="btn btn-danger"><i class="bi bi-trash me-2"></i>Delete</button>
+      </form>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="invoice-wrapper">
+    <div class="invoice-doc" id="invoicePrint">
+
+      <!-- Header -->
+      <div class="invoice-header">
+        <div class="invoice-company">
+          <div class="company-logo-text"><%= companyName.charAt(0) %></div>
+          <div>
+            <h2 class="company-name"><%= companyName %></h2>
+            <p class="company-sub">Tax Invoice</p>
+          </div>
+        </div>
+        <div class="invoice-meta">
+          <h1 class="invoice-number">INVOICE</h1>
+          <div class="invoice-details">
+            <div class="detail-row">
+              <span class="detail-label">Invoice No</span>
+              <span class="detail-value fw-bold"><%= sale.invoiceNo %></span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Date</span>
+              <span class="detail-value"><%= new Date(sale.saleDate).toLocaleDateString('en-IN') %></span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Created By</span>
+              <span class="detail-value"><%= sale.user ? sale.user.name : '—' %></span>
+            </div>
+            <% if (sale.updatedBy) { %>
+            <div class="detail-row">
+              <span class="detail-label">Last Updated</span>
+              <span class="detail-value"><%= sale.updatedBy.name %></span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Updated At</span>
+              <span class="detail-value"><%= new Date(sale.updatedAt).toLocaleString('en-IN') %></span>
+            </div>
+            <% } %>
+            <div class="detail-row">
+              <span class="detail-label">Status</span>
+              <span class="detail-value">
+                <span class="badge bg-<%= sale.status === 'PAID' ? 'success' : sale.status === 'CANCELLED' ? 'danger' : 'warning' %>">
+                  <%= sale.status %>
+                </span>
+              </span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Payment</span>
+              <span class="detail-value"><%= sale.paymentMode.replace('_', ' ') %></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bill To -->
+      <% if (sale.customer) { %>
+      <div class="invoice-bill-to">
+        <div class="bill-section">
+          <h6 class="bill-title">BILL TO</h6>
+          <div class="bill-name"><%= sale.customer.name %></div>
+          <% if (sale.customer.email) { %><div class="bill-detail"><i class="bi bi-envelope me-1"></i><%= sale.customer.email %></div><% } %>
+          <% if (sale.customer.phone) { %><div class="bill-detail"><i class="bi bi-telephone me-1"></i><%= sale.customer.phone %></div><% } %>
+          <% if (sale.customer.address) { %><div class="bill-detail"><i class="bi bi-geo-alt me-1"></i><%= sale.customer.address %></div><% } %>
+          <% if (sale.customer.gstin) { %><div class="bill-detail"><strong>GSTIN:</strong> <%= sale.customer.gstin %></div><% } %>
+        </div>
+      </div>
+      <% } %>
+
+      <!-- Items -->
+      <div class="invoice-items">
+        <table class="table invoice-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Product</th>
+              <th>Category</th>
+              <th class="text-center">Qty</th>
+              <th class="text-end">Unit Price</th>
+              <th class="text-center">Tax</th>
+              <th class="text-end">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% sale.items.forEach((item, idx) => { %>
+            <tr>
+              <td><%= idx + 1 %></td>
+              <td>
+                <div class="fw-medium"><%= item.product.name %></div>
+                <small class="text-muted"><%= item.product.sku %></small>
+              </td>
+              <td class="text-muted small"><%= item.product.category?.name || '—' %></td>
+              <td class="text-center"><%= item.quantity %> <%= item.product.unit %></td>
+              <td class="text-end"><%= currency %><%= parseFloat(item.price).toLocaleString('en-IN', {minimumFractionDigits:2}) %></td>
+              <td class="text-center text-muted"><%= item.tax %>%</td>
+              <td class="text-end fw-semibold"><%= currency %><%= parseFloat(item.total).toLocaleString('en-IN', {minimumFractionDigits:2}) %></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Totals -->
+      <div class="invoice-totals">
+        <div class="totals-table">
+          <div class="total-row">
+            <span>Subtotal</span>
+            <span><%= currency %><%= parseFloat(sale.subtotal).toLocaleString('en-IN', {minimumFractionDigits:2}) %></span>
+          </div>
+          <div class="total-row">
+            <span>Tax</span>
+            <span><%= currency %><%= parseFloat(sale.taxAmount).toLocaleString('en-IN', {minimumFractionDigits:2}) %></span>
+          </div>
+          <% if (parseFloat(sale.discount) > 0) { %>
+          <div class="total-row text-success">
+            <span>Discount</span>
+            <span>− <%= currency %><%= parseFloat(sale.discount).toLocaleString('en-IN', {minimumFractionDigits:2}) %></span>
+          </div>
+          <% } %>
+          <div class="total-row total-grand">
+            <span>TOTAL</span>
+            <span><%= currency %><%= parseFloat(sale.total).toLocaleString('en-IN', {minimumFractionDigits:2}) %></span>
+          </div>
+        </div>
+      </div>
+
+      <% if (sale.notes) { %>
+      <div class="invoice-notes">
+        <strong>Notes:</strong> <%= sale.notes %>
+      </div>
+      <% } %>
+
+      <div class="invoice-footer-note">
+        <p>Thank you for your business! · Generated by <%= companyName %> ERP</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+@media print {
+  .no-print, .app-header, .sidebar, .app-footer, .page-header { display: none !important; }
+  .main-content { margin-left: 0 !important; }
+  .page-body { padding: 0 !important; }
+  .invoice-wrapper { padding: 0; }
+  .invoice-doc { box-shadow: none; border: none; }
+}
+</style>

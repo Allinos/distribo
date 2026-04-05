@@ -1,0 +1,264 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-pencil me-2 text-warning"></i>Edit Invoice</h2>
+      <p class="page-subtitle"><%= sale.invoiceNo %></p>
+    </div>
+    <div class="page-actions">
+      <a href="/sales/<%= sale.id %>" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back
+      </a>
+    </div>
+  </div>
+
+  <!-- Last edit info -->
+  <% if (sale.updatedBy) { %>
+  <div class="alert alert-info d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-clock-history"></i>
+    Last edited by <strong><%= sale.updatedBy.name %></strong>
+    on <%= new Date(sale.updatedAt).toLocaleString('en-IN') %>
+  </div>
+  <% } %>
+
+  <div id="editAlert" class="d-none mb-3"></div>
+
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-list-ul me-2"></i>Invoice Items</h5></div>
+        <div class="card-body">
+          <div class="row g-3 mb-3" style="position:relative">
+            <div class="col-md-8">
+              <label class="form-label small fw-medium">Add / Replace Product</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="productSearch" placeholder="Type product name or SKU...">
+              </div>
+              <div id="productDropdown" class="product-dropdown d-none"></div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table erp-table" id="invoiceTable">
+              <thead>
+                <tr><th>Product</th><th style="width:100px">Qty</th><th style="width:120px">Price (₹)</th><th style="width:80px">Tax %</th><th style="width:130px">Total</th><th style="width:50px"></th></tr>
+              </thead>
+              <tbody id="invoiceItems"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="card erp-card mb-4">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-sliders me-2"></i>Invoice Details</h5></div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Warehouse</label>
+            <select class="form-select" id="warehouseId">
+              <option value="">— No specific warehouse —</option>
+              <% warehouses.forEach(w => { %>
+              <option value="<%= w.id %>" <%= sale.warehouseId === w.id ? 'selected' : '' %>><%= w.name %><% if(w.isDefault){%> ★<%}%></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Customer</label>
+            <select class="form-select" id="customerId">
+              <option value="">Walk-in Customer</option>
+              <% customers.forEach(c => { %>
+              <option value="<%= c.id %>" <%= sale.customerId === c.id ? 'selected' : '' %>><%= c.name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Sale Date</label>
+            <input type="date" class="form-control" id="saleDate"
+              value="<%= new Date(sale.saleDate).toISOString().split('T')[0] %>">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Payment Mode</label>
+            <select class="form-select" id="paymentMode">
+              <% ['CASH','CARD','UPI','BANK_TRANSFER','CREDIT'].forEach(m => { %>
+              <option value="<%= m %>" <%= sale.paymentMode === m ? 'selected' : '' %>><%= m.replace('_',' ') %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Status</label>
+            <select class="form-select" id="saleStatus">
+              <% ['PAID','PARTIAL','UNPAID'].forEach(s => { %>
+              <option value="<%= s %>" <%= sale.status === s ? 'selected' : '' %>><%= s %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Notes</label>
+            <textarea class="form-control" id="invoiceNotes" rows="2"><%= sale.notes || '' %></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-calculator me-2"></i>Summary</h5></div>
+        <div class="card-body">
+          <div class="invoice-summary">
+            <div class="summary-row"><span>Subtotal</span><span id="sumSubtotal">₹0.00</span></div>
+            <div class="summary-row"><span>Tax</span><span id="sumTax">₹0.00</span></div>
+            <div class="summary-row">
+              <span>Discount (₹)</span>
+              <input type="number" class="form-control form-control-sm w-50 text-end"
+                id="discountInput" value="<%= sale.discount || 0 %>" min="0" step="0.01" oninput="calcTotals()">
+            </div>
+            <hr>
+            <div class="summary-row summary-total"><span>Total</span><span id="sumTotal">₹0.00</span></div>
+          </div>
+          <div class="d-grid gap-2 mt-3">
+            <button class="btn btn-warning btn-lg" id="saveBtn" onclick="saveEdit()">
+              <span class="btn-text"><i class="bi bi-check-circle me-2"></i>Save Changes</span>
+              <span class="btn-loader d-none"><span class="spinner-border spinner-border-sm me-2"></span>Saving...</span>
+            </button>
+            <a href="/sales/<%= sale.id %>" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SALE_ID = <%= sale.id %>;
+// Pre-load existing items
+let invoiceItems = <%- JSON.stringify(sale.items.map(i => ({
+  productId: i.productId,
+  name: i.product.name,
+  sku: i.product.sku,
+  price: parseFloat(i.price),
+  tax: parseFloat(i.tax),
+  qty: i.quantity,
+  maxStock: i.product.stock + i.quantity  // current stock + what was deducted
+}))) %>;
+
+let searchTimeout;
+
+// Render on load
+renderItems();
+calcTotals();
+
+document.getElementById('productSearch').addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) { document.getElementById('productDropdown').classList.add('d-none'); return; }
+  searchTimeout = setTimeout(() => fetchProducts(q), 300);
+});
+
+async function fetchProducts(query) {
+  const wId = document.getElementById('warehouseId').value;
+  const url  = wId
+    ? `/warehouses/api/${wId}/stock?search=${encodeURIComponent(query)}`
+    : `/products/api/list?search=${encodeURIComponent(query)}`;
+  const res  = await fetch(url);
+  const prods = await res.json();
+  const dd   = document.getElementById('productDropdown');
+  dd.innerHTML = prods.length
+    ? prods.map(p => {
+        const stock = wId ? p.warehouseStock : p.stock;
+        return `<div class="dropdown-item product-item" onclick='addProduct(${JSON.stringify({...p,stock})})'><div class="d-flex justify-content-between"><div><div class="fw-medium">${p.name}</div><small class="text-muted">${p.sku} · Stock: ${stock} ${p.unit}</small></div><div class="fw-semibold text-primary">₹${parseFloat(p.price).toLocaleString('en-IN')}</div></div></div>`;
+      }).join('')
+    : '<div class="dropdown-item text-muted">No products found</div>';
+  dd.classList.remove('d-none');
+}
+
+function addProduct(p) {
+  document.getElementById('productDropdown').classList.add('d-none');
+  document.getElementById('productSearch').value = '';
+  const existing = invoiceItems.find(i => i.productId === p.id);
+  if (existing) { existing.qty++; renderItems(); calcTotals(); return; }
+  invoiceItems.push({ productId: p.id, name: p.name, sku: p.sku, price: parseFloat(p.price), tax: parseFloat(p.tax), qty: 1, maxStock: p.stock });
+  renderItems(); calcTotals();
+}
+
+function renderItems() {
+  const tbody = document.getElementById('invoiceItems');
+  if (!invoiceItems.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted">No items — add products above</td></tr>';
+    return;
+  }
+  tbody.innerHTML = invoiceItems.map((item, idx) => {
+    const t = item.price * item.qty * (1 + item.tax / 100);
+    return `<tr>
+      <td><div class="fw-medium">${item.name}</div><small class="text-muted">${item.sku}</small></td>
+      <td><input type="number" class="form-control form-control-sm" value="${item.qty}" min="1" onchange="updateQty(${idx},this.value)" style="width:75px"></td>
+      <td><input type="number" class="form-control form-control-sm" value="${item.price}" min="0" step="0.01" onchange="updatePrice(${idx},this.value)" style="width:100px"></td>
+      <td class="text-muted">${item.tax}%</td>
+      <td class="fw-semibold">₹${t.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td><button class="btn btn-sm btn-outline-danger" onclick="removeItem(${idx})"><i class="bi bi-trash"></i></button></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateQty(idx, v)   { invoiceItems[idx].qty = Math.max(1, parseInt(v)||1); renderItems(); calcTotals(); }
+function updatePrice(idx, v) { invoiceItems[idx].price = parseFloat(v)||0; renderItems(); calcTotals(); }
+function removeItem(idx)     { invoiceItems.splice(idx,1); renderItems(); calcTotals(); }
+
+function calcTotals() {
+  let sub = 0, tax = 0;
+  invoiceItems.forEach(i => { const b = i.price * i.qty; sub += b; tax += (b * i.tax)/100; });
+  const disc = parseFloat(document.getElementById('discountInput').value)||0;
+  document.getElementById('sumSubtotal').textContent = `₹${sub.toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+  document.getElementById('sumTax').textContent      = `₹${tax.toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+  document.getElementById('sumTotal').textContent    = `₹${(sub+tax-disc).toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+}
+
+async function saveEdit() {
+  if (!invoiceItems.length) return showAlert('danger', 'Add at least one item.');
+  const btn = document.getElementById('saveBtn');
+  btn.querySelector('.btn-text').classList.add('d-none');
+  btn.querySelector('.btn-loader').classList.remove('d-none');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/sales/${SALE_ID}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        warehouseId: document.getElementById('warehouseId').value || null,
+        customerId:  document.getElementById('customerId').value  || null,
+        paymentMode: document.getElementById('paymentMode').value,
+        status:      document.getElementById('saleStatus').value,
+        saleDate:    document.getElementById('saleDate').value,
+        discount:    document.getElementById('discountInput').value,
+        notes:       document.getElementById('invoiceNotes').value,
+        items:       invoiceItems.map(i => ({ productId: i.productId, quantity: i.qty, price: i.price, tax: i.tax }))
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showAlert('success', data.message);
+      setTimeout(() => window.location.href = `/sales/${SALE_ID}`, 1200);
+    } else {
+      showAlert('danger', data.message);
+      btn.querySelector('.btn-text').classList.remove('d-none');
+      btn.querySelector('.btn-loader').classList.add('d-none');
+      btn.disabled = false;
+    }
+  } catch {
+    showAlert('danger', 'Network error.');
+    btn.querySelector('.btn-text').classList.remove('d-none');
+    btn.querySelector('.btn-loader').classList.add('d-none');
+    btn.disabled = false;
+  }
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('editAlert');
+  el.className = `alert alert-${type}`;
+  el.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':'exclamation-triangle'}-fill me-2"></i>${msg}`;
+  el.classList.remove('d-none');
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#productSearch') && !e.target.closest('#productDropdown'))
+    document.getElementById('productDropdown').classList.add('d-none');
+});
+</script>

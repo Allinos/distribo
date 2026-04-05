@@ -1,0 +1,92 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-trash me-2 text-warning"></i>Stock Write-offs</h2>
+      <p class="page-subtitle">Internal use, damage, expiry, samples, losses</p>
+    </div>
+    <div class="page-actions">
+      <a href="/writeoffs/new" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-2"></i>New Write-off
+      </a>
+    </div>
+  </div>
+
+  <!-- Reason quick filters -->
+  <div class="d-flex gap-2 mb-4 flex-wrap">
+    <a href="/writeoffs" class="btn btn-sm <%= !reason ? 'btn-dark' : 'btn-outline-secondary' %>">All</a>
+    <% Object.entries(REASON_LABELS).forEach(([key, info]) => { %>
+    <a href="/writeoffs?reason=<%= key %>"
+       class="btn btn-sm btn-<%= reason === key ? info.color : 'outline-' + info.color %>">
+      <i class="bi <%= info.icon %> me-1"></i><%= info.label %>
+    </a>
+    <% }) %>
+  </div>
+
+  <!-- Filters -->
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" class="row g-3 align-items-end">
+        <input type="hidden" name="reason" value="<%= reason %>">
+        <div class="col-md-4">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" name="search" value="<%= search %>" placeholder="Write-off #...">
+          </div>
+        </div>
+        <div class="col-md-2"><input type="date" class="form-control" name="from" value="<%= from %>"></div>
+        <div class="col-md-2"><input type="date" class="form-control" name="to" value="<%= to %>"></div>
+        <div class="col-md-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">Filter</button>
+          <a href="/writeoffs" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card erp-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr><th>Write-off #</th><th>Reason</th><th>Products</th><th>Date</th><th>Warehouse</th><th>Cost Value</th><th>By</th></tr>
+          </thead>
+          <tbody>
+            <% if (!writeoffs.length) { %>
+            <tr><td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-trash fs-2 d-block mb-2"></i>No write-offs found</td></tr>
+            <% } %>
+            <% writeoffs.forEach(w => {
+              const reasonInfo = REASON_LABELS[w.reason] || { label: w.reason, icon: 'bi-three-dots', color: 'secondary' };
+              const totalCost = w.items.reduce((s,i) => s + parseFloat(i.costValue), 0);
+            %>
+            <tr>
+              <td><span class="fw-semibold text-warning invoice-link"><%= w.writeoffNo %></span></td>
+              <td>
+                <span class="badge bg-<%= reasonInfo.color %> bg-opacity-15 text-<%= reasonInfo.color %>" style="font-size:.8rem">
+                  <i class="bi <%= reasonInfo.icon %> me-1"></i><%= reasonInfo.label %>
+                </span>
+              </td>
+              <td>
+                <% w.items.slice(0,2).forEach(i => { %>
+                <div class="small fw-medium"><%= i.product.name %> × <%= i.quantity %></div>
+                <% }) %>
+                <% if (w.items.length > 2) { %><small class="text-muted">+<%= w.items.length - 2 %> more</small><% } %>
+              </td>
+              <td class="text-muted small"><%= new Date(w.writeoffDate).toLocaleDateString('en-IN') %></td>
+              <td class="text-muted small"><%= w.warehouse ? w.warehouse.name : '—' %></td>
+              <td class="fw-semibold text-danger">₹<%= totalCost.toLocaleString('en-IN', {maximumFractionDigits:0}) %></td>
+              <td class="text-muted small"><%= w.user.name %></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% if (pagination.totalPages > 1) { %>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted">Showing <%= (pagination.page-1)*pagination.limit+1 %>–<%= Math.min(pagination.page*pagination.limit, pagination.total) %> of <%= pagination.total %></small>
+      <%- include('../../partials/pagination', { query: { search, from, to, reason } }) %>
+    </div>
+    <% } %>
+  </div>
+</div>

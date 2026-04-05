@@ -1,0 +1,221 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-plus-circle me-2 text-primary"></i>Add Product Batch</h2>
+      <p class="page-subtitle">Record a new stock batch with expiry and lot details</p>
+    </div>
+    <div class="page-actions">
+      <a href="/batches" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Back</a>
+    </div>
+  </div>
+
+  <form action="/batches" method="POST">
+    <div class="row g-4">
+      <div class="col-xl-8">
+        <div class="card erp-card">
+          <div class="card-header"><h5 class="card-title"><i class="bi bi-box-seam me-2"></i>Batch Details</h5></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-8">
+                <label class="form-label fw-medium">Product <span class="text-danger">*</span></label>
+                <select class="form-select" name="productId" id="productId" required onchange="loadProductInfo()">
+                  <option value="">Select product...</option>
+                  <% products.forEach(p => { %>
+                  <option value="<%= p.id %>"
+                    data-unit="<%= p.unit %>"
+                    data-cost="<%= p.costPrice %>"
+                    data-stock="<%= p.stock %>"
+                    data-box-unit="<%= p.boxUnit || '' %>"
+                    data-pcs-per-box="<%= p.pcsPerBox || 1 %>">
+                    <%= p.name %> (<%= p.sku %>) — Stock: <%= p.stock %> <%= p.unit %>
+                  </option>
+                  <% }) %>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-medium">Batch / Lot Number</label>
+                <input type="text" class="form-control font-mono" name="batchNo" placeholder="e.g. LOT-2024-001">
+              </div>
+
+              <!-- Box/bundle conversion helper -->
+              <div class="col-12" id="boxConversionPanel" style="display:none">
+                <div class="alert alert-info mb-0">
+                  <div class="d-flex align-items-start gap-3">
+                    <i class="bi bi-box fs-4 text-primary flex-shrink-0"></i>
+                    <div class="flex-fill">
+                      <div class="fw-semibold mb-2">📦 Box/Bundle Conversion</div>
+                      <div class="row g-2 align-items-end">
+                        <div class="col-auto">
+                          <label class="form-label small">Enter in boxes?</label>
+                          <div class="d-flex gap-2 align-items-center">
+                            <input type="number" class="form-control form-control-sm" id="boxQty" min="1" value="1"
+                              placeholder="# of boxes" style="width:100px" oninput="convertBoxes()">
+                            <span id="boxUnitLabel" class="fw-medium text-primary">boxes</span>
+                          </div>
+                        </div>
+                        <div class="col-auto">
+                          <div class="text-muted small">× <span id="pcsPerBoxLabel">1</span> pcs/box =</div>
+                        </div>
+                        <div class="col-auto">
+                          <div class="fw-bold text-success fs-5"><span id="convertedPcs">0</span> <span id="baseUnitLabel">pcs</span></div>
+                        </div>
+                        <div class="col-auto">
+                          <button type="button" class="btn btn-sm btn-primary" onclick="applyBoxConversion()">
+                            Apply
+                          </button>
+                        </div>
+                      </div>
+                      <div class="text-muted small mt-1" id="boxNote"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label fw-medium">Quantity <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <input type="number" class="form-control" name="quantity" id="quantityField" min="1" required value="1">
+                  <span class="input-group-text" id="unitLabel">pcs</span>
+                </div>
+                <div class="form-text">Enter in base units (<span id="unitHint">pcs</span>)</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-medium">Cost Price (₹)</label>
+                <input type="number" class="form-control" name="costPrice" id="costPriceField" step="0.01" min="0" value="0">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-medium">Warehouse</label>
+                <select class="form-select" name="warehouseId">
+                  <option value="">— No specific warehouse —</option>
+                  <% warehouses.forEach(w => { %>
+                  <option value="<%= w.id %>" <%= w.isDefault ? 'selected' : '' %>><%= w.name %><% if (w.isDefault) { %> ★<% } %></option>
+                  <% }) %>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-medium">Manufacturing Date</label>
+                <input type="date" class="form-control" name="mfgDate">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-medium">Expiry Date</label>
+                <input type="date" class="form-control" name="expiryDate" id="expiryDate" onchange="checkExpiryWarning()">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-medium">&nbsp;</label>
+                <div id="expiryWarning" class="d-none alert alert-warning py-2 mb-0" style="font-size:.82rem">
+                  <i class="bi bi-exclamation-triangle me-1"></i>Expiring within 60 days!
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-medium">Notes</label>
+                <textarea class="form-control" name="notes" rows="2" placeholder="Supplier info, condition notes..."></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer d-flex justify-content-end">
+            <button type="submit" class="btn btn-primary px-4">
+              <i class="bi bi-check-lg me-2"></i>Save Batch & Update Stock
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-4">
+        <div class="card erp-card mb-3">
+          <div class="card-header"><h5 class="card-title"><i class="bi bi-question-circle me-2"></i>How Box/Bundle Works</h5></div>
+          <div class="card-body">
+            <ul class="list-unstyled small text-muted">
+              <li class="mb-2">
+                <i class="bi bi-box text-primary me-2"></i>
+                If a product is sold in <strong>boxes of 10</strong>, set the product's <em>Box Unit = box</em> and <em>Pcs per Box = 10</em> in the Products page.
+              </li>
+              <li class="mb-2">
+                <i class="bi bi-arrow-right text-success me-2"></i>
+                When adding a batch, use the <strong>conversion helper</strong> — enter how many boxes you received and it converts to base units automatically.
+              </li>
+              <li class="mb-2">
+                <i class="bi bi-layers text-info me-2"></i>
+                Stock is always stored in <strong>base units</strong> (e.g. pcs). Sales deduct base units.
+              </li>
+              <li>
+                <i class="bi bi-calculator text-warning me-2"></i>
+                Example: Received 5 boxes × 10 pcs/box = <strong>50 pcs</strong> added to stock.
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card erp-card">
+          <div class="card-header"><h5 class="card-title"><i class="bi bi-bell me-2 text-warning"></i>Expiry Notifications</h5></div>
+          <div class="card-body small text-muted">
+            <ul class="list-unstyled">
+              <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Batches expiring within <strong>60 days</strong> show a warning banner</li>
+              <li class="mb-2"><i class="bi bi-x-circle text-danger me-2"></i>Expired batches show an alert on the Batches page</li>
+              <li><i class="bi bi-speedometer2 text-primary me-2"></i>Expiry alerts also appear on the <a href="/">Dashboard</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+function loadProductInfo() {
+  const sel  = document.getElementById('productId');
+  const opt  = sel.options[sel.selectedIndex];
+  if (!opt.value) return;
+
+  const unit      = opt.dataset.unit       || 'pcs';
+  const cost      = opt.dataset.cost       || 0;
+  const boxUnit   = opt.dataset.boxUnit    || '';
+  const pcsPerBox = parseInt(opt.dataset.pcsPerBox) || 1;
+
+  document.getElementById('unitLabel').textContent   = unit;
+  document.getElementById('unitHint').textContent    = unit;
+  document.getElementById('costPriceField').value    = cost;
+
+  const boxPanel = document.getElementById('boxConversionPanel');
+  if (boxUnit && pcsPerBox > 1) {
+    document.getElementById('boxUnitLabel').textContent   = boxUnit;
+    document.getElementById('pcsPerBoxLabel').textContent = pcsPerBox;
+    document.getElementById('baseUnitLabel').textContent  = unit;
+    document.getElementById('boxNote').textContent        = `1 ${boxUnit} = ${pcsPerBox} ${unit}`;
+    convertBoxes();
+    boxPanel.style.display = '';
+  } else {
+    boxPanel.style.display = 'none';
+  }
+}
+
+function convertBoxes() {
+  const sel      = document.getElementById('productId');
+  const opt      = sel.options[sel.selectedIndex];
+  const pcsPerBox = parseInt(opt?.dataset.pcsPerBox) || 1;
+  const boxes    = parseInt(document.getElementById('boxQty').value) || 0;
+  document.getElementById('convertedPcs').textContent = boxes * pcsPerBox;
+}
+
+function applyBoxConversion() {
+  const sel       = document.getElementById('productId');
+  const opt       = sel.options[sel.selectedIndex];
+  const pcsPerBox  = parseInt(opt?.dataset.pcsPerBox) || 1;
+  const boxes     = parseInt(document.getElementById('boxQty').value) || 0;
+  document.getElementById('quantityField').value = boxes * pcsPerBox;
+}
+
+function checkExpiryWarning() {
+  const val  = document.getElementById('expiryDate').value;
+  const warn = document.getElementById('expiryWarning');
+  if (!val) { warn.classList.add('d-none'); return; }
+  const days = Math.ceil((new Date(val) - new Date()) / (1000 * 60 * 60 * 24));
+  warn.classList.toggle('d-none', days > 60);
+  if (days <= 0) {
+    warn.className = 'alert alert-danger py-2 mb-0';
+    warn.innerHTML = '<i class="bi bi-x-circle me-1"></i>This date is already in the past!';
+  } else if (days <= 60) {
+    warn.className = 'alert alert-warning py-2 mb-0';
+    warn.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>Expiring in ${days} days!`;
+  }
+}
+</script>

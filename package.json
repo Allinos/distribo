@@ -1,0 +1,53 @@
+{
+  "name": "erp-desktop",
+  "version": "2.0.0",
+  "description": "Full-Stack Desktop ERP Application",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "electron": "electron .",
+    "dev:electron": "concurrently \"nodemon src/app.js\" \"wait-on http://localhost:3000 && electron .\"",
+    "build:electron": "electron-builder",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "node src/utils/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.0",
+    "bcrypt": "^5.1.1",
+    "connect-flash": "^0.1.1",
+    "dotenv": "^16.4.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "express-ejs-layouts": "^2.5.1",
+    "express-fileupload": "^1.4.3",
+    "express-session": "^1.18.0",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "method-override": "^3.0.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "prisma": "^5.10.0",
+    "mysql2": "^3.9.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.3",
+    "nodemon": "^3.0.3",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.erp.desktop",
+    "productName": "ERP System",
+    "directories": { "output": "dist" },
+    "files": ["electron/**/*", "src/**/*", "views/**/*", "public/**/*", "prisma/**/*", "package.json"],
+    "extraResources": [{ "from": "prisma", "to": "prisma" }],
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage" },
+    "mac": { "target": "dmg" }
+  }
+}

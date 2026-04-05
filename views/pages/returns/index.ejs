@@ -1,0 +1,119 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-arrow-return-left me-2 text-danger"></i>Sales Returns</h2>
+      <p class="page-subtitle">Manage customer returns and refunds</p>
+    </div>
+    <div class="page-actions">
+      <a href="/returns/new" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-2"></i>New Return
+      </a>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="stat-card stat-card-danger">
+        <div class="stat-icon"><i class="bi bi-arrow-return-left"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Total Returns</div>
+          <div class="stat-value"><%= summary.totalCount %></div>
+          <div class="stat-change neutral">all time</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card stat-card-warning">
+        <div class="stat-icon"><i class="bi bi-currency-rupee"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Total Refunded</div>
+          <div class="stat-value">₹<%= summary.totalRefund.toLocaleString('en-IN', {maximumFractionDigits:0}) %></div>
+          <div class="stat-change neutral">all time</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card erp-card h-100 d-flex align-items-center justify-content-center">
+        <a href="/returns/new" class="btn btn-outline-danger btn-lg m-3">
+          <i class="bi bi-plus-circle me-2"></i>Process Return from Invoice
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" name="search" value="<%= search %>" placeholder="Return #, Invoice #, or customer...">
+          </div>
+        </div>
+        <div class="col-md-2"><input type="date" class="form-control" name="from" value="<%= from %>"></div>
+        <div class="col-md-2"><input type="date" class="form-control" name="to" value="<%= to %>"></div>
+        <div class="col-md-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">Filter</button>
+          <a href="/returns" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card erp-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr>
+              <th>Return #</th>
+              <th>Invoice #</th>
+              <th>Customer</th>
+              <th>Date</th>
+              <th>Items</th>
+              <th>Refund Amount</th>
+              <th>Refund Mode</th>
+              <th>Warehouse</th>
+              <th>Status</th>
+              <th>By</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!returns.length) { %>
+            <tr><td colspan="10" class="text-center py-5 text-muted"><i class="bi bi-arrow-return-left fs-2 d-block mb-2"></i>No returns found</td></tr>
+            <% } %>
+            <% returns.forEach(r => { %>
+            <tr>
+              <td><span class="fw-semibold text-danger invoice-link"><%= r.returnNo %></span></td>
+              <td>
+                <a href="/sales/<%= r.sale.id %>" class="text-primary invoice-link"><%= r.sale.invoiceNo %></a>
+              </td>
+              <td class="text-muted"><%= r.sale.customer ? r.sale.customer.name : 'Walk-in' %></td>
+              <td class="text-muted small"><%= new Date(r.returnDate).toLocaleDateString('en-IN') %></td>
+              <td><span class="badge bg-light text-dark border"><%= r.items.length %> items</span></td>
+              <td class="fw-bold text-danger">₹<%= parseFloat(r.refundAmount).toLocaleString('en-IN') %></td>
+              <td><span class="badge bg-light text-dark border"><%= r.refundMode || '—' %></span></td>
+              <td class="text-muted small"><%= r.warehouse ? r.warehouse.name : '—' %></td>
+              <td>
+                <span class="badge bg-<%= r.status === 'COMPLETED' ? 'success' : r.status === 'CANCELLED' ? 'danger' : 'warning' %>">
+                  <%= r.status %>
+                </span>
+              </td>
+              <td class="text-muted small"><%= r.user.name %></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% if (pagination.totalPages > 1) { %>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted">Showing <%= (pagination.page-1)*pagination.limit+1 %>–<%= Math.min(pagination.page*pagination.limit, pagination.total) %> of <%= pagination.total %></small>
+      <%- include('../../partials/pagination', { query: { search, from, to } }) %>
+    </div>
+    <% } %>
+  </div>
+</div>

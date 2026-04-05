@@ -1,0 +1,263 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-arrow-return-left me-2 text-danger"></i>New Return</h2>
+      <p class="page-subtitle">Return # <strong><%= returnNo %></strong></p>
+    </div>
+    <div class="page-actions">
+      <a href="/returns" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Back</a>
+    </div>
+  </div>
+
+  <div id="retAlert" class="d-none mb-3"></div>
+
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <!-- Step 1: Find Invoice -->
+      <div class="card erp-card mb-4">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-receipt me-2"></i>Step 1 — Find Invoice</h5></div>
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-8">
+              <label class="form-label fw-medium">Invoice Number</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control font-mono" id="invoiceSearch"
+                  value="<%= invoiceNo %>" placeholder="e.g. INV-2024-0001">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <button class="btn btn-primary w-100" onclick="findInvoice()">
+                <span class="btn-text"><i class="bi bi-search me-2"></i>Find Invoice</span>
+                <span class="btn-loader d-none"><span class="spinner-border spinner-border-sm me-2"></span>Searching...</span>
+              </button>
+            </div>
+          </div>
+          <div id="invoiceInfo" class="d-none mt-3"></div>
+        </div>
+      </div>
+
+      <!-- Step 2: Select Items -->
+      <div class="card erp-card d-none" id="itemsCard">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-list-check me-2"></i>Step 2 — Select Items to Return</h5></div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table erp-table mb-0" id="itemsTable">
+              <thead>
+                <tr>
+                  <th style="width:40px"><input type="checkbox" id="checkAll" onchange="toggleAll(this)"></th>
+                  <th>Product</th>
+                  <th class="text-center">Purchased</th>
+                  <th class="text-center">Already Returned</th>
+                  <th class="text-center">Return Qty</th>
+                  <th class="text-end">Unit Price</th>
+                  <th class="text-end">Refund</th>
+                </tr>
+              </thead>
+              <tbody id="itemsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="col-xl-4">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-info-circle me-2"></i>Return Details</h5></div>
+        <div class="card-body">
+          <input type="hidden" id="saleId">
+
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Reason for Return <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="returnReason" rows="2" placeholder="e.g. Wrong product, Defective item..."></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Refund Mode</label>
+            <select class="form-select" id="refundMode">
+              <option value="CASH">💵 Cash Refund</option>
+              <option value="CREDIT_NOTE">📋 Credit Note</option>
+              <option value="EXCHANGE">🔄 Exchange</option>
+              <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
+              <option value="UPI">📱 UPI</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Return to Warehouse</label>
+            <select class="form-select" id="warehouseId">
+              <option value="">— Default —</option>
+              <% warehouses.forEach(w => { %>
+              <option value="<%= w.id %>" <%= w.isDefault ? 'selected' : '' %>><%= w.name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Notes</label>
+            <textarea class="form-control" id="retNotes" rows="2"></textarea>
+          </div>
+
+          <div class="invoice-summary mb-3">
+            <div class="summary-row"><span>Items selected</span><span id="sumItems">0</span></div>
+            <div class="summary-row"><span>Total Qty</span><span id="sumQty">0</span></div>
+            <hr>
+            <div class="summary-row summary-total"><span>Refund Amount</span><span id="sumRefund" class="text-danger">₹0.00</span></div>
+          </div>
+
+          <button class="btn btn-danger w-100" id="submitRetBtn" onclick="submitReturn()" disabled>
+            <span class="btn-text"><i class="bi bi-arrow-return-left me-2"></i>Process Return</span>
+            <span class="btn-loader d-none"><span class="spinner-border spinner-border-sm me-2"></span>Processing...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const RETURN_NO = '<%= returnNo %>';
+let returnableItems = [];
+let saleData = null;
+
+async function findInvoice() {
+  const invoiceNo = document.getElementById('invoiceSearch').value.trim();
+  if (!invoiceNo) return showAlert('warning', 'Enter an invoice number.');
+  const btn = document.querySelector('[onclick="findInvoice()"]');
+  btn.querySelector('.btn-text').classList.add('d-none');
+  btn.querySelector('.btn-loader').classList.remove('d-none');
+  btn.disabled = true;
+  try {
+    const res  = await fetch(`/returns/find-invoice?invoiceNo=${encodeURIComponent(invoiceNo)}`);
+    const data = await res.json();
+    if (!data.success) { showAlert('danger', data.message); return; }
+    saleData = data.sale;
+    returnableItems = data.items;
+    document.getElementById('saleId').value = saleData.id;
+    renderInvoiceInfo(saleData);
+    renderItems(returnableItems);
+    document.getElementById('itemsCard').classList.remove('d-none');
+    hideAlert();
+  } catch { showAlert('danger', 'Network error.'); }
+  finally {
+    btn.querySelector('.btn-text').classList.remove('d-none');
+    btn.querySelector('.btn-loader').classList.add('d-none');
+    btn.disabled = false;
+  }
+}
+
+function renderInvoiceInfo(s) {
+  document.getElementById('invoiceInfo').innerHTML = `
+    <div class="p-3 bg-light rounded border d-flex gap-4 align-items-center">
+      <div><div class="small text-muted">Invoice</div><div class="fw-bold">${s.invoiceNo}</div></div>
+      <div><div class="small text-muted">Customer</div><div class="fw-medium">${s.customer ? s.customer.name : 'Walk-in'}</div></div>
+      <div><div class="small text-muted">Date</div><div class="fw-medium">${new Date(s.saleDate).toLocaleDateString('en-IN')}</div></div>
+      <div><div class="small text-muted">Invoice Total</div><div class="fw-bold text-success">₹${parseFloat(s.total).toLocaleString('en-IN')}</div></div>
+      <div><div class="small text-muted">Payment</div><div class="fw-medium">${s.paymentMode}</div></div>
+    </div>`;
+  document.getElementById('invoiceInfo').classList.remove('d-none');
+}
+
+function renderItems(items) {
+  const tbody = document.getElementById('itemsBody');
+  tbody.innerHTML = items.map((item, idx) => `
+    <tr>
+      <td><input type="checkbox" class="item-check" data-idx="${idx}" onchange="onItemCheck(this)"></td>
+      <td>
+        <div class="fw-medium">${item.name}</div>
+        <small class="text-muted">${item.sku}</small>
+      </td>
+      <td class="text-center">${item.originalQty} ${item.unit}</td>
+      <td class="text-center text-muted">${item.returnedQty > 0 ? item.returnedQty : '—'}</td>
+      <td class="text-center">
+        <input type="number" class="form-control form-control-sm text-center item-qty"
+          data-idx="${idx}" value="1" min="1" max="${item.availableQty}"
+          style="width:70px;margin:auto" onchange="calcSummary()">
+        <small class="text-muted">max ${item.availableQty}</small>
+      </td>
+      <td class="text-end">₹${item.price.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+      <td class="text-end fw-semibold item-refund" data-idx="${idx}">₹0.00</td>
+    </tr>`).join('');
+}
+
+function toggleAll(cb) {
+  document.querySelectorAll('.item-check').forEach(c => { c.checked = cb.checked; onItemCheck(c, false); });
+  calcSummary();
+}
+
+function onItemCheck(cb, doCalc = true) {
+  const idx  = cb.dataset.idx;
+  const qtyEl = document.querySelector(`.item-qty[data-idx="${idx}"]`);
+  qtyEl.disabled = !cb.checked;
+  if (doCalc) calcSummary();
+}
+
+function calcSummary() {
+  let items = 0, qty = 0, refund = 0;
+  document.querySelectorAll('.item-check:checked').forEach(cb => {
+    const idx  = cb.dataset.idx;
+    const item = returnableItems[idx];
+    const q    = parseInt(document.querySelector(`.item-qty[data-idx="${idx}"]`).value) || 0;
+    const r    = q * item.price;
+    qty += q; refund += r; items++;
+    document.querySelector(`.item-refund[data-idx="${idx}"]`).textContent = `₹${r.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+  });
+  document.getElementById('sumItems').textContent = items;
+  document.getElementById('sumQty').textContent = qty;
+  document.getElementById('sumRefund').textContent = `₹${refund.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+  document.getElementById('submitRetBtn').disabled = items === 0;
+}
+
+async function submitReturn() {
+  if (!saleData) return showAlert('danger', 'Find an invoice first.');
+  const selectedItems = [];
+  document.querySelectorAll('.item-check:checked').forEach(cb => {
+    const idx = cb.dataset.idx;
+    const item = returnableItems[idx];
+    const qty  = parseInt(document.querySelector(`.item-qty[data-idx="${idx}"]`).value) || 0;
+    if (qty > 0) selectedItems.push({ productId: item.productId, quantity: qty, price: item.price });
+  });
+  if (!selectedItems.length) return showAlert('danger', 'Select items to return.');
+
+  const btn = document.getElementById('submitRetBtn');
+  btn.querySelector('.btn-text').classList.add('d-none');
+  btn.querySelector('.btn-loader').classList.remove('d-none');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/returns', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        saleId:      saleData.id,
+        returnNo:    RETURN_NO,
+        warehouseId: document.getElementById('warehouseId').value || null,
+        reason:      document.getElementById('returnReason').value,
+        refundMode:  document.getElementById('refundMode').value,
+        notes:       document.getElementById('retNotes').value,
+        items:       selectedItems
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showAlert('success', data.message);
+      setTimeout(() => window.location.href = '/returns', 1500);
+    } else {
+      showAlert('danger', data.message);
+      btn.querySelector('.btn-text').classList.remove('d-none');
+      btn.querySelector('.btn-loader').classList.add('d-none');
+      btn.disabled = false;
+    }
+  } catch { showAlert('danger', 'Network error.'); }
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('retAlert');
+  el.className = `alert alert-${type}`;
+  el.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':type==='warning'?'exclamation-circle':'exclamation-triangle'}-fill me-2"></i>${msg}`;
+  el.classList.remove('d-none');
+}
+function hideAlert() { document.getElementById('retAlert').classList.add('d-none'); }
+
+// Auto-search if invoice pre-filled from URL
+<% if (invoiceNo) { %>
+window.addEventListener('load', findInvoice);
+<% } %>
+</script>

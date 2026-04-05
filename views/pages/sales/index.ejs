@@ -1,0 +1,189 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Sales</h2>
+      <p class="page-subtitle"><%= pagination.total %> total entries</p>
+    </div>
+    <div class="page-actions">
+      <a href="/sales/reports" class="btn btn-outline-secondary me-2">
+        <i class="bi bi-bar-chart-line me-2"></i>Reports
+      </a>
+      <a href="/vehicles/sales/new" class="btn btn-outline-success me-2">
+        <i class="bi bi-truck me-2"></i>New Van Sale
+      </a>
+      <a href="/sales/new" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-2"></i>New Invoice
+      </a>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="stat-card stat-card-primary">
+        <div class="stat-icon"><i class="bi bi-receipt"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Normal Sales</div>
+          <div class="stat-value">₹<%= summary.normalTotal.toLocaleString('en-IN') %></div>
+          <div class="stat-change neutral"><i class="bi bi-file-text me-1"></i><%= summary.normalCount %> invoices</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card stat-card-success">
+        <div class="stat-icon"><i class="bi bi-truck"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Van Sales</div>
+          <div class="stat-value">₹<%= summary.vanTotal.toLocaleString('en-IN') %></div>
+          <div class="stat-change neutral"><i class="bi bi-truck-front me-1"></i><%= summary.vanCount %> sales</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card stat-card-warning">
+        <div class="stat-icon"><i class="bi bi-graph-up"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Combined Total</div>
+          <div class="stat-value">₹<%= (summary.normalTotal + summary.vanTotal).toLocaleString('en-IN') %></div>
+          <div class="stat-change neutral"><i class="bi bi-collection me-1"></i><%= summary.normalCount + summary.vanCount %> records</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Type Filter Tabs -->
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" action="/sales" id="filterForm" class="row g-3 align-items-end">
+        <!-- Type tabs -->
+        <div class="col-12 mb-1">
+          <div class="btn-group" role="group">
+            <a href="?type=all&search=<%= search %>&from=<%= from %>&to=<%= to %>"
+               class="btn btn-sm <%= saleType === 'all' ? 'btn-primary' : 'btn-outline-primary' %>">
+              <i class="bi bi-collection me-1"></i>All (<%= summary.normalCount + summary.vanCount %>)
+            </a>
+            <a href="?type=normal&search=<%= search %>&from=<%= from %>&to=<%= to %>"
+               class="btn btn-sm <%= saleType === 'normal' ? 'btn-primary' : 'btn-outline-primary' %>">
+              <i class="bi bi-receipt me-1"></i>Normal (<%= summary.normalCount %>)
+            </a>
+            <a href="?type=van&search=<%= search %>&from=<%= from %>&to=<%= to %>"
+               class="btn btn-sm <%= saleType === 'van' ? 'btn-success' : 'btn-outline-success' %>">
+              <i class="bi bi-truck me-1"></i>Van (<%= summary.vanCount %>)
+            </a>
+          </div>
+        </div>
+        <!-- Search + date -->
+        <div class="col-md-4">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" name="search" value="<%= search %>" placeholder="Invoice # or customer...">
+          </div>
+        </div>
+        <div class="col-md-2"><input type="date" class="form-control" name="from" value="<%= from %>"></div>
+        <div class="col-md-2"><input type="date" class="form-control" name="to" value="<%= to %>"></div>
+        <input type="hidden" name="type" value="<%= saleType %>">
+        <div class="col-md-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">Filter</button>
+          <a href="/sales" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card erp-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Invoice #</th>
+              <th>Customer</th>
+              <th>Vehicle</th>
+              <th>Date</th>
+              <th>Items</th>
+              <th>Total</th>
+              <th>Payment</th>
+              <th>Status</th>
+              <th>By</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!sales.length) { %>
+            <tr>
+              <td colspan="11" class="text-center py-5 text-muted">
+                <i class="bi bi-receipt fs-2 d-block mb-2"></i>No sales found
+              </td>
+            </tr>
+            <% } %>
+            <% sales.forEach(s => { %>
+            <tr>
+              <!-- Type badge -->
+              <td>
+                <% if (s._type === 'van') { %>
+                  <span class="badge bg-success"><i class="bi bi-truck me-1"></i>Van</span>
+                <% } else { %>
+                  <span class="badge bg-primary"><i class="bi bi-receipt me-1"></i>Normal</span>
+                <% } %>
+              </td>
+              <!-- Invoice # -->
+              <td>
+                <% if (s._type === 'van') { %>
+                  <span class="fw-semibold text-success invoice-link"><%= s.invoiceNo %></span>
+                <% } else { %>
+                  <a href="/sales/<%= s.id %>" class="fw-semibold text-primary invoice-link"><%= s.invoiceNo %></a>
+                <% } %>
+              </td>
+              <!-- Customer -->
+              <td class="text-muted"><%= s.customer ? s.customer.name : 'Walk-in' %></td>
+              <!-- Vehicle (only for van) -->
+              <td>
+                <% if (s._type === 'van' && s.vehicle) { %>
+                  <div class="fw-medium small"><%= s.vehicle.name %></div>
+                  <code class="sku-code" style="font-size:0.7rem"><%= s.vehicle.regNo %></code>
+                <% } else { %>
+                  <span class="text-muted">—</span>
+                <% } %>
+              </td>
+              <td class="text-muted small"><%= new Date(s.saleDate).toLocaleDateString('en-IN') %></td>
+              <td><span class="badge bg-light text-dark border"><%= s.items.length %> items</span></td>
+              <td class="fw-bold">₹<%= parseFloat(s.total).toLocaleString('en-IN') %></td>
+              <td><span class="badge bg-light text-dark border"><%= s.paymentMode %></span></td>
+              <td>
+                <span class="badge bg-<%= s.status === 'PAID' ? 'success' : s.status === 'CANCELLED' ? 'danger' : s.status === 'PARTIAL' ? 'warning' : 'secondary' %>">
+                  <%= s.status %>
+                </span>
+              </td>
+              <td class="text-muted small"><%= s.user ? s.user.name : '—' %></td>
+              <td class="text-end">
+                <% if (s._type === 'normal') { %>
+                  <a href="/sales/<%= s.id %>" class="btn btn-sm btn-outline-primary me-1" title="View"><i class="bi bi-eye"></i></a>
+                  <% if (s.status !== 'CANCELLED') { %>
+                  <form action="/sales/<%= s.id %>/cancel" method="POST" class="d-inline" onsubmit="return confirm('Cancel invoice?')">
+                    <button class="btn btn-sm btn-outline-danger" title="Cancel"><i class="bi bi-x-circle"></i></button>
+                  </form>
+                  <% } %>
+                <% } else { %>
+                  <a href="/vehicles/sales" class="btn btn-sm btn-outline-success" title="View in Van Sales"><i class="bi bi-truck"></i></a>
+                <% } %>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% if (pagination.totalPages > 1) { %>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted">
+        Showing <%= (pagination.page - 1) * pagination.limit + 1 %> –
+        <%= Math.min(pagination.page * pagination.limit, pagination.total) %>
+        of <%= pagination.total %>
+      </small>
+      <%- include('../../partials/pagination', { query: { search, from, to, type: saleType } }) %>
+    </div>
+    <% } %>
+  </div>
+</div>

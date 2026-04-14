@@ -103,7 +103,7 @@
               <div class="col-md-4">
                 <label class="form-label fw-medium">&nbsp;</label>
                 <div id="expiryWarning" class="d-none alert alert-warning py-2 mb-0" style="font-size:.82rem">
-                  <i class="bi bi-exclamation-triangle me-1"></i>Expiring within 60 days!
+                  <i class="bi bi-exclamation-triangle me-1"></i>Expiring within 15 days!
                 </div>
               </div>
               <div class="col-12">
@@ -209,11 +209,11 @@ function checkExpiryWarning() {
   const warn = document.getElementById('expiryWarning');
   if (!val) { warn.classList.add('d-none'); return; }
   const days = Math.ceil((new Date(val) - new Date()) / (1000 * 60 * 60 * 24));
-  warn.classList.toggle('d-none', days > 60);
+  warn.classList.toggle('d-none', days > 15);
   if (days <= 0) {
     warn.className = 'alert alert-danger py-2 mb-0';
     warn.innerHTML = '<i class="bi bi-x-circle me-1"></i>This date is already in the past!';
-  } else if (days <= 60) {
+  } else if (days <= 15) {
     warn.className = 'alert alert-warning py-2 mb-0';
     warn.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>Expiring in ${days} days!`;
   }

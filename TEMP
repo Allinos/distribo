@@ -1,0 +1,73 @@
+// ============================================================
+// SCHEMA PATCH — add these to your existing schema.prisma
+// ============================================================
+//
+// INSTRUCTIONS:
+// 1. Add `costPrice` field to VanSaleItem model
+// 2. Add `amountPaid` field to Sale model
+// 3. Add SalePayment model
+// 4. Add CustomerLedger model + LedgerType enum
+// 5. Add SupplierLedger model + SupplierLedgerType enum
+// 6. Add `avgCostPrice` to Product (if not already present)
+// 7. Add relations as shown
+//
+// ── 1. In VanSaleItem model, add after `price` line: ────────────────────────
+//   costPrice Decimal @default(0) @db.Decimal(10, 2) @map("cost_price")
+//
+// ── 2. In Sale model, add before `updatedById`: ─────────────────────────────
+//   amountPaid  Decimal @default(0) @db.Decimal(10, 2) @map("amount_paid")
+//
+// ── 3. In Sale model, add to relations: ─────────────────────────────────────
+//   payments    SalePayment[]
+//
+// ── 4. In Customer model, add to relations: ─────────────────────────────────
+//   ledger      CustomerLedger[]
+//
+// ── 5. In Supplier model, add to relations: ─────────────────────────────────
+//   ledger      SupplierLedger[]
+//
+// ── 6. In Product model, add after `stock` if not present: ──────────────────
+//   avgCostPrice Decimal @default(0) @db.Decimal(10, 2) @map("avg_cost_price")
+//
+// ── 7. Add these NEW models BEFORE the Expense model: ───────────────────────
+
+model SalePayment {
+  id          Int         @id @default(autoincrement())
+  saleId      Int         @map("sale_id")
+  mode        PaymentMode
+  amount      Decimal     @db.Decimal(10, 2)
+  reference   String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  sale        Sale        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  @@map("sale_payments")
+}
+
+model CustomerLedger {
+  id          Int         @id @default(autoincrement())
+  customerId  Int         @map("customer_id")
+  saleId      Int?        @map("sale_id")
+  type        LedgerType
+  amount      Decimal     @db.Decimal(10, 2)
+  balance     Decimal     @db.Decimal(10, 2)
+  note        String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  @@map("customer_ledger")
+}
+
+enum LedgerType { SALE PAYMENT ADJUSTMENT CREDIT_NOTE }
+
+model SupplierLedger {
+  id          Int                @id @default(autoincrement())
+  supplierId  Int                @map("supplier_id")
+  purchaseId  Int?               @map("purchase_id")
+  type        SupplierLedgerType
+  amount      Decimal            @db.Decimal(10, 2)
+  balance     Decimal            @db.Decimal(10, 2)
+  note        String?
+  createdAt   DateTime           @default(now()) @map("created_at")
+  supplier    Supplier           @relation(fields: [supplierId], references: [id])
+  @@map("supplier_ledger")
+}
+
+enum SupplierLedgerType { PURCHASE PAYMENT ADJUSTMENT RETURN }

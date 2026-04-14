@@ -1,78 +1,86 @@
 <div class="page-content">
   <div class="page-header">
     <div>
-      <h2 class="page-title">New Van Sale</h2>
-      <p class="page-subtitle">Invoice # <strong>
-          <%= invoiceNo %>
-        </strong></p>
+      <h2 class="page-title"><i class="bi bi-truck me-2 text-success"></i>New Van Sale</h2>
+      <p class="page-subtitle">Invoice # <strong><%= invoiceNo %></strong></p>
     </div>
     <div class="page-actions">
       <a href="/vehicles/sales" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Back</a>
     </div>
   </div>
 
-  <div id="vsAlert" class="d-none mb-3"></div>
+  <div id="saleAlert" class="d-none mb-3"></div>
 
   <div class="row g-4">
+    <!-- Left: Vehicle selector + POS grid + items -->
     <div class="col-xl-8">
-      <div class="card erp-card mb-4">
-        <div class="card-header">
-          <h5 class="card-title"><i class="bi bi-truck me-2"></i>Select Vehicle</h5>
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-6">
+
+      <!-- Vehicle selector -->
+      <div class="card erp-card mb-3">
+        <div class="card-body py-3">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-5">
               <label class="form-label small fw-medium">Vehicle <span class="text-danger">*</span></label>
-              <select class="form-select" id="vehicleSelect" onchange="loadVehicleStock()">
+              <select class="form-select" id="vehicleId" onchange="onVehicleChange()">
                 <option value="">— Select vehicle —</option>
-                <% vehicles.forEach(v=> { %>
-                  <option value="<%= v.id %>" <%=(typeof query !=='undefined' && query.vehicleId==v.id) ? 'selected'
-                    : '' %>>
-                    <%= v.name %> — <%= v.regNo %>
-                        <% if (v.driver) { %>(<%= v.driver.name %>)<% } %>
-                  </option>
-                  <% }) %>
+                <% vehicles.forEach(v => { %>
+                <option value="<%= v.id %>"
+                  data-loaded="<%= v.stocks.filter(s=>s.quantity>0).length %>"
+                  <%= v.preSelectedVehicleId == v.id ? 'selected' : '' %>>
+                  <%= v.name %> (<%= v.regNo %>)
+                  — <%= v.stocks.filter(s=>s.quantity>0).length %> products loaded
+                </option>
+                <% }) %>
               </select>
             </div>
-            <div class="col-md-6" id="vehicleStockInfo" style="display:none">
-              <label class="form-label small fw-medium">Available Products</label>
-              <div class="form-control bg-light" style="min-height:38px" id="stockCount">—</div>
+            <div class="col-md-7" style="position:relative">
+              <label class="form-label small fw-medium">Search Product</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="productSearch"
+                  placeholder="Type name or SKU to search or filter grid..." disabled>
+              </div>
+              <div id="productDropdown" class="product-dropdown d-none"></div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="card erp-card" id="itemsCard" style="display:none">
-        <div class="card-header">
-          <h5 class="card-title"><i class="bi bi-list-ul me-2"></i>Sale Items</h5>
-        </div>
-        <div class="card-body">
-          <div class="row g-3 mb-3">
-            <div class="col-md-8" style="position:relative">
-              <label class="form-label small fw-medium">Add Product from Vehicle</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input type="text" class="form-control" id="productSearch" placeholder="Search vehicle stock...">
-              </div>
-              <div id="productDropdown" class="product-dropdown d-none"></div>
-            </div>
+      <!-- POS Product Grid from van stock -->
+      <div id="posGrid" class="d-none mb-3">
+        <div class="card erp-card">
+          <div class="card-header">
+            <h5 class="card-title"><i class="bi bi-grid me-2 text-success"></i>Van Stock — Quick Select</h5>
+            <small class="text-muted">Click to add · Shows only products loaded on this van</small>
           </div>
+          <div class="card-body p-2">
+            <div id="posProductGrid" class="pos-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items table -->
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-list-ul me-2"></i>Sale Items</h5></div>
+        <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table erp-table">
+            <table class="table erp-table mb-0">
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th style="width:90px">Qty</th>
-                  <th style="width:110px">Price</th>
-                  <th style="width:75px">Tax%</th>
+                  <th style="width:85px">Qty</th>
+                  <th style="width:115px">Price (₹)</th>
+                  <th style="width:70px">Tax%</th>
                   <th style="width:120px">Total</th>
-                  <th style="width:45px"></th>
+                  <th style="width:36px"></th>
                 </tr>
               </thead>
               <tbody id="saleItems">
                 <tr id="emptyRow">
-                  <td colspan="6" class="text-center py-4 text-muted"><i
-                      class="bi bi-cart-plus fs-3 d-block mb-2"></i>Select a vehicle and search products</td>
+                  <td colspan="6" class="text-center py-4 text-muted">
+                    <i class="bi bi-truck fs-3 d-block mb-2 text-muted"></i>
+                    Select a vehicle first, then click products from the grid
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -81,174 +89,248 @@
       </div>
     </div>
 
+    <!-- Right: Details + Summary -->
     <div class="col-xl-4">
-      <div class="card erp-card mb-4">
-        <div class="card-header">
-          <h5 class="card-title"><i class="bi bi-person me-2"></i>Customer & Payment</h5>
-        </div>
+      <div class="card erp-card mb-3">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-person me-2"></i>Details</h5></div>
         <div class="card-body">
-          <div class="mb-3">
+          <div class="mb-2">
             <label class="form-label small fw-medium">Customer</label>
-            <select class="form-select" id="customerId">
+            <select class="form-select form-select-sm" id="customerId">
               <option value="">Walk-in Customer</option>
-              <% customers.forEach(c=> { %>
-                <option value="<%= c.id %>">
-                  <%= c.name %>
-                    <%= c.phone ? `(${c.phone})` : '' %>
-                </option>
-                <% }) %>
+              <% customers.forEach(c => { %>
+              <option value="<%= c.id %>"><%= c.name %><%= c.phone ? ` (${c.phone})` : '' %></option>
+              <% }) %>
             </select>
           </div>
-          <div class="mb-3">
+          <div class="mb-2">
             <label class="form-label small fw-medium">Payment Mode</label>
-            <select class="form-select" id="paymentMode">
+            <select class="form-select form-select-sm" id="paymentMode">
               <option value="CASH">💵 Cash</option>
-              <option value="CARD">💳 Card</option>
               <option value="UPI">📱 UPI</option>
-              <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
+              <option value="CARD">💳 Card</option>
               <option value="CREDIT">📋 Credit</option>
+              <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
             </select>
           </div>
-          <div class="mb-3">
+          <div class="mb-2">
+            <label class="form-label small fw-medium">Sale Date</label>
+            <input type="date" class="form-control form-control-sm" id="saleDate"
+              value="<%= new Date().toISOString().split('T')[0] %>">
+          </div>
+          <div>
             <label class="form-label small fw-medium">Notes</label>
-            <textarea class="form-control" id="saleNotes" rows="2"></textarea>
+            <textarea class="form-control form-control-sm" id="saleNotes" rows="2" placeholder="Optional..."></textarea>
           </div>
         </div>
       </div>
 
       <div class="card erp-card">
-        <div class="card-header">
-          <h5 class="card-title"><i class="bi bi-calculator me-2"></i>Summary</h5>
-        </div>
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-calculator me-2"></i>Summary</h5></div>
         <div class="card-body">
           <div class="invoice-summary">
             <div class="summary-row"><span>Subtotal</span><span id="sumSubtotal">₹0.00</span></div>
             <div class="summary-row"><span>Tax</span><span id="sumTax">₹0.00</span></div>
-            <div class="summary-row">
-              <span>Discount (₹)</span>
-              <input type="number" class="form-control form-control-sm w-50 text-end" id="discountInput" value="0"
-                min="0" step="0.01" oninput="calcTotals()">
+            <div class="mb-2">
+              <label class="form-label small fw-medium">Discount (₹)</label>
+              <input type="number" class="form-control form-control-sm" id="discountInput"
+                value="0" min="0" step="0.01" oninput="calcTotals()">
             </div>
-            <hr>
-            <div class="summary-row summary-total"><span>Total</span><span id="sumTotal">₹0.00</span></div>
+            <hr class="my-2">
+            <div class="summary-row summary-total"><span>Total</span><span id="sumTotal" class="fw-bold">₹0.00</span></div>
           </div>
-          <div class="d-grid mt-3">
-            <button class="btn btn-success btn-lg" id="saveSaleBtn" onclick="saveVanSale()">
-              <span class="btn-text"><i class="bi bi-check-circle me-2"></i>Save Van Sale</span>
-              <span class="btn-loader d-none"><span
-                  class="spinner-border spinner-border-sm me-2"></span>Saving...</span>
-            </button>
-          </div>
+          <button class="btn btn-success w-100 mt-3 btn-lg" id="saveBtn" onclick="saveVanSale()">
+            <span class="btn-text"><i class="bi bi-check-circle me-2"></i>Save Van Sale</span>
+            <span class="btn-loader d-none"><span class="spinner-border spinner-border-sm me-2"></span>Saving...</span>
+          </button>
         </div>
       </div>
     </div>
   </div>
 </div>
 
+<style>
+.pos-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:6px; }
+.pos-item { border:1px solid var(--color-border-tertiary); border-radius:8px; padding:8px 6px; cursor:pointer; text-align:center; transition:all .15s; background:var(--color-background-primary); }
+.pos-item:hover { border-color:#059669; background:rgba(5,150,105,.06); }
+.pos-item:active { transform:scale(.95); }
+.pos-name  { font-size:.75rem; font-weight:600; line-height:1.3; margin-bottom:2px; color:var(--color-text-primary); }
+.pos-price { font-size:.8rem; color:#059669; font-weight:700; }
+.pos-stock { font-size:.62rem; color:var(--color-text-tertiary); }
+.pos-item.oos { opacity:.35; pointer-events:none; }
+</style>
+
 <script>
-  const INVOICE_NO = '<%= invoiceNo %>';
-  let saleItems = [];
-  let vehicleProducts = [];
+const INVOICE_NO = '<%= invoiceNo %>';
+let vanItems = [], vanStockCache = [], searchTimer;
 
-  async function loadVehicleStock() {
-    const vehicleId = document.getElementById('vehicleSelect').value;
-    if (!vehicleId) { document.getElementById('vehicleStockInfo').style.display = 'none'; document.getElementById('itemsCard').style.display = 'none'; return; }
+// ── Vehicle change ────────────────────────────────────────────────────────────
+async function onVehicleChange() {
+  const vehicleId = document.getElementById('vehicleId').value;
+  vanItems = []; renderItems(); calcTotals();
+  document.getElementById('posGrid').classList.add('d-none');
+  document.getElementById('productSearch').disabled = true;
+  if (!vehicleId) return;
 
-    try {
-      const res = await fetch(`/vehicles/api/${vehicleId}/stock`);
-      vehicleProducts = await res.json();
-      document.getElementById('stockCount').textContent = `${vehicleProducts.length} products loaded`;
-      document.getElementById('vehicleStockInfo').style.display = '';
-      document.getElementById('itemsCard').style.display = '';
-      saleItems = [];
-      renderItems();
-      calcTotals();
-    } catch { showAlert('danger', 'Failed to load vehicle stock.'); }
+  try {
+    const stocks = await (await fetch(`/vehicles/api/${vehicleId}/stock`)).json();
+    vanStockCache = stocks;
+    renderPOSGrid(stocks);
+    document.getElementById('posGrid').classList.remove('d-none');
+    document.getElementById('productSearch').disabled = false;
+  } catch (e) {
+    showAlert('danger', 'Failed to load vehicle stock.');
   }
+}
 
-  document.getElementById('productSearch').addEventListener('input', function () {
-    const q = this.value.trim().toLowerCase();
-    if (q.length < 1) { document.getElementById('productDropdown').classList.add('d-none'); return; }
-    const filtered = vehicleProducts.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
+function renderPOSGrid(stocks) {
+  const g = document.getElementById('posProductGrid');
+  if (!stocks.length) {
+    g.innerHTML = '<p class="text-muted small p-2"><i class="bi bi-inbox me-1"></i>No stock loaded on this vehicle. <a href="/vehicles">Load stock first.</a></p>';
+    return;
+  }
+  g.innerHTML = stocks.map(p =>
+    `<div class="pos-item${p.vehicleStock===0?' oos':''}"
+      onclick='addProduct(${JSON.stringify({id:p.id,name:p.name,sku:p.sku,price:parseFloat(p.price),tax:parseFloat(p.tax),stock:p.vehicleStock,unit:p.unit})})'>
+      <div class="pos-name">${p.name}</div>
+      <div class="pos-price">₹${parseFloat(p.price).toLocaleString('en-IN')}</div>
+      <div class="pos-stock">${p.vehicleStock} ${p.unit}</div>
+    </div>`
+  ).join('');
+}
+
+// ── Search (filter grid + dropdown) ──────────────────────────────────────────
+document.getElementById('productSearch').addEventListener('input', function() {
+  const q = this.value.trim().toLowerCase();
+  if (vanStockCache.length) {
+    renderPOSGrid(q ? vanStockCache.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) : vanStockCache);
+  }
+  clearTimeout(searchTimer);
+  if (q.length < 2) { document.getElementById('productDropdown').classList.add('d-none'); return; }
+  searchTimer = setTimeout(() => {
+    const filtered = vanStockCache.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
     const dd = document.getElementById('productDropdown');
     dd.innerHTML = filtered.length
-      ? filtered.map(p => `<div class="dropdown-item product-item" onclick='addProduct(${JSON.stringify(p)})'><div class="d-flex justify-content-between"><div><div class="fw-medium">${p.name}</div><small class="text-muted">${p.sku}</small></div><div class="text-end"><div class="fw-semibold text-primary">₹${parseFloat(p.price).toFixed(2)}</div><small class="badge bg-light text-dark border">Van stock: ${p.vehicleStock} ${p.unit}</small></div></div></div>`).join('')
-      : '<div class="dropdown-item text-muted">No products on this vehicle</div>';
+      ? filtered.map(p => `<div class="dropdown-item product-item" onclick='addProduct(${JSON.stringify({id:p.id,name:p.name,sku:p.sku,price:parseFloat(p.price),tax:parseFloat(p.tax),stock:p.vehicleStock,unit:p.unit})})'>
+          <div class="d-flex justify-content-between align-items-center">
+            <div><div class="fw-medium">${p.name}</div><small class="text-muted">${p.sku} · ${p.vehicleStock} ${p.unit} on van</small></div>
+            <span class="fw-bold text-success">₹${parseFloat(p.price).toLocaleString('en-IN')}</span>
+          </div></div>`).join('')
+      : '<div class="dropdown-item text-muted">No matching products on van</div>';
     dd.classList.remove('d-none');
-  });
+  }, 200);
+});
 
-  function addProduct(p) {
+// ── Items ─────────────────────────────────────────────────────────────────────
+function addProduct(p) {
+  document.getElementById('productDropdown').classList.add('d-none');
+  document.getElementById('productSearch').value = '';
+  const ex = vanItems.find(i => i.productId === p.id);
+  if (ex) {
+    if (ex.qty < ex.maxStock) { ex.qty++; renderItems(); calcTotals(); }
+    else showAlert('warning', `Max van stock for "${p.name}": ${ex.maxStock} ${p.unit}`);
+    return;
+  }
+  vanItems.push({ productId: p.id, name: p.name, sku: p.sku, price: p.price, tax: p.tax, qty: 1, maxStock: p.stock, unit: p.unit });
+  renderItems(); calcTotals();
+}
+
+function renderItems() {
+  const tbody = document.getElementById('saleItems');
+  document.getElementById('emptyRow')?.remove();
+  if (!vanItems.length) {
+    const vehicleId = document.getElementById('vehicleId').value;
+    tbody.innerHTML = `<tr id="emptyRow"><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-${vehicleId?'cart-plus':'truck'} fs-3 d-block mb-2"></i>${vehicleId?'Click products from the grid above':'Select a vehicle first'}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = vanItems.map((item, idx) => {
+    const b = item.price*item.qty, tax = (b*item.tax)/100, t = b+tax;
+    return `<tr>
+      <td><div class="fw-medium">${item.name}</div><small class="text-muted">${item.sku} · Van stock: ${item.maxStock}</small></td>
+      <td><input type="number" class="form-control form-control-sm" value="${item.qty}" min="1" max="${item.maxStock}"
+            onchange="updateQty(${idx},this.value)" style="width:68px"></td>
+      <td><input type="number" class="form-control form-control-sm" value="${item.price}" min="0" step="0.01"
+            onchange="updatePrice(${idx},this.value)" style="width:95px"></td>
+      <td class="text-muted small">${item.tax}%</td>
+      <td class="fw-semibold">₹${t.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td><button class="btn btn-sm btn-outline-danger p-1" onclick="removeItem(${idx})"><i class="bi bi-x"></i></button></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateQty(i, v)   { vanItems[i].qty = Math.max(1, Math.min(parseInt(v)||1, vanItems[i].maxStock)); renderItems(); calcTotals(); }
+function updatePrice(i, v) { vanItems[i].price = parseFloat(v)||0; renderItems(); calcTotals(); }
+function removeItem(i)     { vanItems.splice(i,1); renderItems(); calcTotals(); }
+
+function calcTotals() {
+  let sub=0, tax=0;
+  vanItems.forEach(i => { const b=i.price*i.qty; sub+=b; tax+=(b*i.tax)/100; });
+  const disc  = parseFloat(document.getElementById('discountInput').value)||0;
+  const total = sub + tax - disc;
+  document.getElementById('sumSubtotal').textContent = `₹${sub.toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+  document.getElementById('sumTax').textContent      = `₹${tax.toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+  document.getElementById('sumTotal').textContent    = `₹${total.toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+async function saveVanSale() {
+  const vehicleId = document.getElementById('vehicleId').value;
+  if (!vehicleId)        return showAlert('danger', 'Select a vehicle.');
+  if (!vanItems.length)  return showAlert('danger', 'Add at least one product.');
+
+  const btn = document.getElementById('saveBtn');
+  btn.querySelector('.btn-text').classList.add('d-none');
+  btn.querySelector('.btn-loader').classList.remove('d-none');
+  btn.disabled = true;
+
+  try {
+    const res  = await fetch('/vehicles/sales', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        invoiceNo:   INVOICE_NO,
+        vehicleId,
+        customerId:  document.getElementById('customerId').value || null,
+        paymentMode: document.getElementById('paymentMode').value,
+        saleDate:    document.getElementById('saleDate').value,
+        discount:    document.getElementById('discountInput').value || 0,
+        notes:       document.getElementById('saleNotes').value,
+        items:       vanItems.map(i => ({ productId: i.productId, quantity: i.qty, price: i.price, tax: i.tax }))
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showAlert('success', data.message);
+      setTimeout(() => window.location.href = `/vehicles/sales/${data.saleId}`, 1200);
+    } else {
+      showAlert('danger', data.message);
+      btn.querySelector('.btn-text').classList.remove('d-none');
+      btn.querySelector('.btn-loader').classList.add('d-none');
+      btn.disabled = false;
+    }
+  } catch {
+    showAlert('danger', 'Network error.');
+    btn.querySelector('.btn-text').classList.remove('d-none');
+    btn.querySelector('.btn-loader').classList.add('d-none');
+    btn.disabled = false;
+  }
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('saleAlert');
+  el.className = `alert alert-${type}`;
+  el.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':type==='warning'?'exclamation-circle':'exclamation-triangle'}-fill me-2"></i>${msg}`;
+  el.classList.remove('d-none');
+  el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#productSearch') && !e.target.closest('#productDropdown'))
     document.getElementById('productDropdown').classList.add('d-none');
-    document.getElementById('productSearch').value = '';
-    const existing = saleItems.find(i => i.productId === p.id);
-    if (existing) { existing.qty++; renderItems(); calcTotals(); return; }
-    saleItems.push({ productId: p.id, name: p.name, sku: p.sku, price: parseFloat(p.price), tax: parseFloat(p.tax), qty: 1, maxQty: p.vehicleStock, unit: p.unit });
-    renderItems(); calcTotals();
-  }
+});
 
-  function renderItems() {
-    const tbody = document.getElementById('saleItems');
-    document.getElementById('emptyRow')?.remove();
-    if (!saleItems.length) { tbody.innerHTML = '<tr id="emptyRow"><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-cart-plus fs-3 d-block mb-2"></i>Select a vehicle and search products</td></tr>'; return; }
-    tbody.innerHTML = saleItems.map((item, idx) => {
-      const t = item.price * item.qty * (1 + item.tax / 100);
-      return `<tr><td><div class="fw-medium">${item.name}</div><small class="text-muted">${item.sku} · Max: ${item.maxQty} ${item.unit}</small></td>
-      <td><input type="number" class="form-control form-control-sm" value="${item.qty}" min="1" max="${item.maxQty}" onchange="updateQty(${idx},this.value)" style="width:70px"></td>
-      <td><input type="number" class="form-control form-control-sm" value="${item.price}" min="0" step="0.01" onchange="updatePrice(${idx},this.value)" style="width:90px"></td>
-      <td class="text-muted">${item.tax}%</td>
-      <td class="fw-semibold">₹${t.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-      <td><button class="btn btn-sm btn-outline-danger" onclick="removeItem(${idx})"><i class="bi bi-trash"></i></button></td></tr>`;
-    }).join('');
-  }
-
-  function updateQty(idx, v) { saleItems[idx].qty = Math.max(1, Math.min(parseInt(v) || 1, saleItems[idx].maxQty)); renderItems(); calcTotals(); }
-  function updatePrice(idx, v) { saleItems[idx].price = parseFloat(v) || 0; renderItems(); calcTotals(); }
-  function removeItem(idx) { saleItems.splice(idx, 1); renderItems(); calcTotals(); }
-
-  function calcTotals() {
-    let sub = 0, tax = 0;
-    saleItems.forEach(i => { const b = i.price * i.qty; sub += b; tax += (b * i.tax) / 100; });
-    const disc = parseFloat(document.getElementById('discountInput').value) || 0;
-    document.getElementById('sumSubtotal').textContent = `₹${sub.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-    document.getElementById('sumTax').textContent = `₹${tax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-    document.getElementById('sumTotal').textContent = `₹${(sub + tax - disc).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-  }
-
-  async function saveVanSale() {
-    const vehicleId = document.getElementById('vehicleSelect').value;
-    if (!vehicleId) return showAlert('danger', 'Please select a vehicle.');
-    if (!saleItems.length) return showAlert('danger', 'Add at least one item.');
-    const btn = document.getElementById('saveSaleBtn');
-    btn.querySelector('.btn-text').classList.add('d-none');
-    btn.querySelector('.btn-loader').classList.remove('d-none');
-    btn.disabled = true;
-    try {
-      const res = await fetch('/vehicles/sales/new', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          invoiceNo: INVOICE_NO, vehicleId, customerId: document.getElementById('customerId').value || null,
-          paymentMode: document.getElementById('paymentMode').value, discount: document.getElementById('discountInput').value,
-          notes: document.getElementById('saleNotes').value,
-          items: saleItems.map(i => ({ productId: i.productId, quantity: i.qty, price: i.price, tax: i.tax }))
-        })
-      });
-      const data = await res.json();
-      if (data.success) { showAlert('success', data.message); setTimeout(() => window.location.href = '/vehicles/sales', 1200); }
-      else { showAlert('danger', data.message); btn.querySelector('.btn-text').classList.remove('d-none'); btn.querySelector('.btn-loader').classList.add('d-none'); btn.disabled = false; }
-    } catch { showAlert('danger', 'Network error.'); btn.querySelector('.btn-text').classList.remove('d-none'); btn.querySelector('.btn-loader').classList.add('d-none'); btn.disabled = false; }
-  }
-
-  function showAlert(type, msg) {
-    const el = document.getElementById('vsAlert');
-    el.className = `alert alert-${type}`; el.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}-fill me-2"></i>${msg}`; el.classList.remove('d-none');
-  }
-
-  document.addEventListener('click', e => { if (!e.target.closest('#productSearch') && !e.target.closest('#productDropdown')) document.getElementById('productDropdown').classList.add('d-none'); });
-
-  // Auto-load if vehicleId in URL
-  window.addEventListener('load', () => {
-    const params = new URLSearchParams(window.location.search);
-    const vid = params.get('vehicleId');
-    if (vid) { document.getElementById('vehicleSelect').value = vid; loadVehicleStock(); }
-  });
+// Auto-load vehicle if query param set
+window.addEventListener('load', () => {
+  const sel = document.getElementById('vehicleId');
+  if (sel.value) onVehicleChange();
+});
 </script>

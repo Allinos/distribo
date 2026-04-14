@@ -1,9 +1,11 @@
+'use strict';
 const express = require('express');
-const router = express.Router();
-const ctrl = require('../controllers/settingController');
-const { isAdmin } = require('../middleware/auth');
+const router  = express.Router();
+const ctrl    = require('../controllers/settingController');
 
-router.get('/', isAdmin, ctrl.index);
-router.post('/', isAdmin, ctrl.update);
+router.get('/',           ctrl.index);
+router.post('/',          ctrl.update);
+router.put('/',           ctrl.update);
+router.post('/backup-now', ctrl.runBackupNow);
 
 module.exports = router;

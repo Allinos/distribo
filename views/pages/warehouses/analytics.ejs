@@ -1,0 +1,234 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-graph-up me-2 text-primary"></i><%= warehouse.name %> — Analytics</h2>
+      <p class="page-subtitle"><% if (warehouse.location) { %><i class="bi bi-geo-alt me-1"></i><%= warehouse.location %><% } %></p>
+    </div>
+    <div class="page-actions d-flex gap-2 flex-wrap align-items-center">
+      <% warehouses.forEach(w => { %>
+      <a href="/warehouses/<%= w.id %>/analytics"
+         class="btn btn-sm <%= w.id === warehouse.id ? 'btn-primary' : 'btn-outline-secondary' %>">
+        <i class="bi bi-building me-1"></i><%= w.name %>
+      </a>
+      <% }) %>
+      <form method="GET" class="d-flex gap-2 align-items-center ms-2">
+        <input type="date" class="form-control form-control-sm" name="from" value="<%= from %>" style="width:140px">
+        <span class="text-muted">—</span>
+        <input type="date" class="form-control form-control-sm" name="to" value="<%= to %>" style="width:140px">
+        <button type="submit" class="btn btn-sm btn-primary">Go</button>
+      </form>
+      <a href="/warehouses/<%= warehouse.id %>/stock" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-box-seam me-1"></i>View Stock
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-purple">
+        <div class="rpt-icon"><i class="bi bi-graph-up"></i></div>
+        <div class="rpt-label">Total Sales</div>
+        <div class="rpt-value">₹<%= summary.totalSales.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+        <div class="rpt-sub"><%= summary.salesCount %> invoices</div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-teal">
+        <div class="rpt-icon"><i class="bi bi-boxes"></i></div>
+        <div class="rpt-label">Inventory Cost</div>
+        <div class="rpt-value">₹<%= summary.inventoryValue.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+        <div class="rpt-sub"><%= summary.stockItems %> products</div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-blue">
+        <div class="rpt-icon"><i class="bi bi-tag"></i></div>
+        <div class="rpt-label">Retail Value</div>
+        <div class="rpt-value">₹<%= summary.inventoryRetail.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+        <div class="rpt-sub">at selling price</div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-orange">
+        <div class="rpt-icon"><i class="bi bi-percent"></i></div>
+        <div class="rpt-label">Tax Collected</div>
+        <div class="rpt-value">₹<%= summary.totalTax.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+        <div class="rpt-sub">in period</div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-red">
+        <div class="rpt-icon"><i class="bi bi-exclamation-triangle"></i></div>
+        <div class="rpt-label">Low Stock</div>
+        <div class="rpt-value"><%= summary.lowStockCount %></div>
+        <div class="rpt-sub">products</div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6">
+      <div class="rpt-card rpt-red">
+        <div class="rpt-icon"><i class="bi bi-x-circle"></i></div>
+        <div class="rpt-label">Out of Stock</div>
+        <div class="rpt-value"><%= summary.outOfStockCount %></div>
+        <div class="rpt-sub">products</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="row g-4 mb-4">
+    <div class="col-xl-8">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-bar-chart me-2"></i>30-Day Sales Trend</h5></div>
+        <div class="card-body"><canvas id="trendChart" height="100"></canvas></div>
+      </div>
+    </div>
+    <div class="col-xl-4">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-pie-chart me-2"></i>Payment Methods</h5></div>
+        <div class="card-body d-flex align-items-center justify-content-center">
+          <canvas id="paymentChart" style="max-height:200px"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Products + Alerts -->
+  <div class="row g-4 mb-4">
+    <div class="col-xl-6">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-trophy me-2 text-warning"></i>Top Selling Products</h5></div>
+        <div class="card-body p-0">
+          <% if (!topProducts.length) { %>
+          <div class="empty-state py-4 text-center text-muted">No sales data in this period</div>
+          <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover erp-table mb-0">
+              <thead><tr><th>#</th><th>Product</th><th class="text-center">Qty</th><th class="text-end">Revenue</th></tr></thead>
+              <tbody>
+                <% topProducts.forEach((p,i) => { %>
+                <tr>
+                  <td class="text-muted"><%= i+1 %></td>
+                  <td><div class="fw-medium"><%= p.name %></div><code class="sku-code"><%= p.sku %></code></td>
+                  <td class="text-center"><%= p.qty %> <%= p.unit %></td>
+                  <td class="text-end fw-bold">₹<%= p.revenue.toLocaleString('en-IN',{maximumFractionDigits:0}) %></td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-6">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Stock Alerts</h5></div>
+        <div class="card-body p-0">
+          <% if (!lowStockItems.length && !outOfStockItems.length) { %>
+          <div class="empty-state py-4 text-center"><i class="bi bi-check-circle-fill text-success fs-2"></i><p class="mt-2 text-muted">All products well stocked</p></div>
+          <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover erp-table mb-0">
+              <thead><tr><th>Product</th><th class="text-center">Stock</th><th class="text-center">Min</th><th>Status</th></tr></thead>
+              <tbody>
+                <% outOfStockItems.forEach(s => { %>
+                <tr class="table-danger bg-opacity-10">
+                  <td><div class="fw-medium"><%= s.product.name %></div><small class="text-muted"><%= s.product.category.name %></small></td>
+                  <td class="text-center fw-bold text-danger">0</td>
+                  <td class="text-center text-muted"><%= s.product.minStock %></td>
+                  <td><span class="badge bg-danger">Out of Stock</span></td>
+                </tr>
+                <% }) %>
+                <% lowStockItems.forEach(s => { %>
+                <tr class="table-warning bg-opacity-10">
+                  <td><div class="fw-medium"><%= s.product.name %></div><small class="text-muted"><%= s.product.category.name %></small></td>
+                  <td class="text-center fw-bold text-warning"><%= s.quantity %> <%= s.product.unit %></td>
+                  <td class="text-center text-muted"><%= s.product.minStock %></td>
+                  <td><span class="badge bg-warning text-dark">Low Stock</span></td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full Inventory -->
+  <div class="card erp-card">
+    <div class="card-header">
+      <h5 class="card-title"><i class="bi bi-table me-2"></i>Full Inventory — <%= warehouse.name %></h5>
+      <span class="text-muted small">
+        Cost: <strong>₹<%= summary.inventoryValue.toLocaleString('en-IN',{maximumFractionDigits:0}) %></strong>
+        &nbsp;·&nbsp; Retail: <strong>₹<%= summary.inventoryRetail.toLocaleString('en-IN',{maximumFractionDigits:0}) %></strong>
+      </span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead>
+            <tr><th>Product</th><th>Category</th><th class="text-center">Stock</th><th class="text-end">Cost/Unit</th><th class="text-end">Sell/Unit</th><th class="text-end">Cost Value</th><th class="text-end">Retail Value</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <% stocks.forEach(s => { %>
+            <tr>
+              <td><div class="fw-medium"><%= s.product.name %></div><code class="sku-code"><%= s.product.sku %></code></td>
+              <td><span class="badge bg-light text-dark border"><%= s.product.category.name %></span></td>
+              <td class="text-center fw-semibold <%= s.quantity===0?'text-danger':s.quantity<=s.product.minStock?'text-warning':'text-success' %>"><%= s.quantity %> <%= s.product.unit %></td>
+              <td class="text-end text-muted">₹<%= parseFloat(s.product.costPrice).toLocaleString('en-IN',{minimumFractionDigits:2}) %></td>
+              <td class="text-end">₹<%= parseFloat(s.product.price).toLocaleString('en-IN',{minimumFractionDigits:2}) %></td>
+              <td class="text-end text-muted small">₹<%= (s.quantity*parseFloat(s.product.costPrice)).toLocaleString('en-IN',{maximumFractionDigits:0}) %></td>
+              <td class="text-end fw-medium">₹<%= (s.quantity*parseFloat(s.product.price)).toLocaleString('en-IN',{maximumFractionDigits:0}) %></td>
+              <td>
+                <% if(s.quantity===0){%><span class="badge bg-danger">Out</span>
+                <%}else if(s.quantity<=s.product.minStock){%><span class="badge bg-warning text-dark">Low</span>
+                <%}else{%><span class="badge bg-success">OK</span><%}%>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.rpt-card{border-radius:12px;padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.2rem;border-left:4px solid transparent;background:var(--color-background-primary);box-shadow:0 1px 4px rgba(0,0,0,.07);transition:box-shadow .2s}
+.rpt-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.1)}
+.rpt-icon{font-size:1.3rem;margin-bottom:.2rem}
+.rpt-label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-secondary)}
+.rpt-value{font-size:1.25rem;font-weight:800;line-height:1.2;color:var(--color-text-primary)}
+.rpt-sub{font-size:.72rem;color:var(--color-text-tertiary)}
+.rpt-purple{border-color:#7c3aed}.rpt-purple .rpt-icon,.rpt-purple .rpt-value{color:#7c3aed}
+.rpt-teal{border-color:#059669}.rpt-teal .rpt-icon,.rpt-teal .rpt-value{color:#059669}
+.rpt-blue{border-color:#2563eb}.rpt-blue .rpt-icon,.rpt-blue .rpt-value{color:#2563eb}
+.rpt-red{border-color:#dc2626}.rpt-red .rpt-icon,.rpt-red .rpt-value{color:#dc2626}
+.rpt-orange{border-color:#d97706}.rpt-orange .rpt-icon,.rpt-orange .rpt-value{color:#d97706}
+</style>
+
+<script>
+const trendData   = <%- trendData %>;
+const paymentData = <%- paymentBreakdown %>;
+
+new Chart(document.getElementById('trendChart').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: trendData.map(d => d.date.slice(5)),
+    datasets: [{ label: 'Sales (₹)', data: trendData.map(d => d.total), borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', fill: true, tension: 0.4, pointRadius: 2 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } } } }
+});
+
+new Chart(document.getElementById('paymentChart').getContext('2d'), {
+  type: 'doughnut',
+  data: {
+    labels: paymentData.length ? paymentData.map(p => p.paymentMode) : ['No Data'],
+    datasets: [{ data: paymentData.length ? paymentData.map(p => parseFloat(p._sum?.total || 0)) : [1], backgroundColor: ['#6366f1','#22c55e','#f59e0b','#ef4444','#3b82f6'], borderWidth: 2, borderColor: '#fff' }]
+  },
+  options: { responsive: true, plugins: { legend: { position: 'bottom' } }, cutout: '60%' }
+});
+</script>

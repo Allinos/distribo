@@ -6,7 +6,7 @@ exports.index = async (req, res) => {
   const search  = req.query.search  || '';
   const filter  = req.query.filter  || 'all'; // all | expiring | expired
   const now     = new Date();
-  const in60days = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+  const in60days = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000);
 
   try {
     const prisma = await getPrisma();

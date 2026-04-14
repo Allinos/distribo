@@ -35,6 +35,8 @@ const returnRoutes      = require('./routes/returns');
 const writeoffRoutes    = require('./routes/writeoffs');
 const batchRoutes       = require('./routes/batches');
 
+
+
 const { isAuthenticated, isDbConfigured, isActivated } = require('./middleware/auth');
 
 const app = express();
@@ -124,6 +126,7 @@ app.use('/returns',        ...protect, returnRoutes);
 app.use('/writeoffs',      ...protect, writeoffRoutes);
 app.use('/batches',        ...protect, batchRoutes);
 
+
 // 404
 app.use((req, res) => {
   res.status(404).render('pages/error', { title: '404', message: 'Page not found.', code: 404, layout: req.session.user ? 'layout' : false });
@@ -140,6 +143,9 @@ cron.schedule('0 2 * * *', async () => {
   try { const bs = require('./services/backupService'); await bs.createBackup('auto'); console.log('Auto backup done.'); }
   catch (e) { console.error('Auto backup failed:', e); }
 });
+
+const { initAutoBackup } = require('./controllers/settingController');
+setTimeout(initAutoBackup, 5000);
 
 app.listen(PORT, () => {
   console.log(`\n🚀 ERP Server running on http://localhost:${PORT}`);

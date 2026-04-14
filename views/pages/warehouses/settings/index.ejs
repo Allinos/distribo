@@ -1,0 +1,202 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-gear me-2 text-secondary"></i>Settings</h2>
+      <p class="page-subtitle">Company profile, preferences and system configuration</p>
+    </div>
+  </div>
+
+  <form action="/settings" method="POST">
+    <input type="hidden" name="_method" value="PUT">
+
+    <div class="row g-4">
+      <!-- Company Info -->
+      <div class="col-xl-6">
+        <div class="card erp-card">
+          <div class="card-header"><h5 class="card-title"><i class="bi bi-building me-2"></i>Company Information</h5></div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label fw-medium">Company Name</label>
+              <input type="text" class="form-control" name="company_name" value="<%= settings.company_name || '' %>" placeholder="My Business">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-medium">Address</label>
+              <textarea class="form-control" name="company_address" rows="2"><%= settings.company_address || '' %></textarea>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-medium">Phone</label>
+                <input type="text" class="form-control" name="company_phone" value="<%= settings.company_phone || '' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-medium">Email</label>
+                <input type="email" class="form-control" name="company_email" value="<%= settings.company_email || '' %>">
+              </div>
+            </div>
+            <div class="mt-3">
+              <label class="form-label fw-medium">GSTIN</label>
+              <input type="text" class="form-control" name="gstin" value="<%= settings.gstin || '' %>" placeholder="22AAAAA0000A1Z5">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Invoice Settings -->
+      <div class="col-xl-6">
+        <div class="card erp-card">
+          <div class="card-header"><h5 class="card-title"><i class="bi bi-receipt me-2"></i>Invoice & Sales</h5></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-medium">Currency Symbol</label>
+                <input type="text" class="form-control" name="currency" value="<%= settings.currency || '₹' %>" maxlength="5">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-medium">Invoice Prefix</label>
+                <input type="text" class="form-control" name="invoice_prefix" value="<%= settings.invoice_prefix || 'INV' %>" maxlength="10">
+                <div class="form-text">e.g. INV → INV-2024-0001</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-medium">Default Tax Rate (%)</label>
+                <input type="number" class="form-control" name="tax_rate" value="<%= settings.tax_rate || '18' %>" min="0" max="100" step="0.1">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-medium">Low Stock Alert (units)</label>
+                <input type="number" class="form-control" name="low_stock_alert" value="<%= settings.low_stock_alert || '5' %>" min="0">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-medium">Expiry Alert (days before)</label>
+                <input type="number" class="form-control" name="expiry_alert_days" value="<%= settings.expiry_alert_days || '60' %>" min="1">
+              </div>
+            </div>
+            <div class="mt-3">
+              <label class="form-label fw-medium">Invoice Footer Note</label>
+              <input type="text" class="form-control" name="footer_note" value="<%= settings.footer_note || '' %>" placeholder="Thank you for your business!">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auto Backup -->
+      <div class="col-12">
+        <div class="card erp-card border-primary border-opacity-25">
+          <div class="card-header" style="background:rgba(99,102,241,.04)">
+            <h5 class="card-title"><i class="bi bi-cloud-arrow-up me-2 text-primary"></i>Automatic Backup</h5>
+            <small class="text-muted">Saves a full JSON backup of all data at regular intervals</small>
+          </div>
+          <div class="card-body">
+            <div class="row g-4 align-items-start">
+              <!-- Toggle -->
+              <div class="col-md-3">
+                <label class="form-label fw-medium">Enable Auto Backup</label>
+                <div class="d-flex align-items-center gap-3 mt-1">
+                  <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="autoBackupToggle"
+                      name="auto_backup_enabled" value="true"
+                      <%= settings.auto_backup_enabled === 'true' ? 'checked' : '' %>
+                      onchange="toggleBackupFields(this.checked)" style="width:2.5rem;height:1.3rem">
+                    <label class="form-check-label ms-2 fw-medium" for="autoBackupToggle" id="backupToggleLabel">
+                      <%= settings.auto_backup_enabled === 'true' ? 'Enabled' : 'Disabled' %>
+                    </label>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <span class="badge <%= settings.auto_backup_enabled === 'true' ? 'bg-success' : 'bg-secondary' %>" id="backupStatusBadge">
+                    <i class="bi bi-<%= settings.auto_backup_enabled === 'true' ? 'check-circle' : 'pause-circle' %> me-1"></i>
+                    <%= settings.auto_backup_enabled === 'true' ? 'Running' : 'Stopped' %>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Config fields -->
+              <div class="col-md-9" id="backupConfigFields" style="<%= settings.auto_backup_enabled !== 'true' ? 'opacity:.45;pointer-events:none' : '' %>">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label fw-medium">Backup Interval</label>
+                    <select class="form-select" name="auto_backup_interval_hours">
+                      <% [
+                        { val: '6',  label: 'Every 6 hours' },
+                        { val: '12', label: 'Every 12 hours' },
+                        { val: '24', label: 'Daily (24h)' },
+                        { val: '48', label: 'Every 2 days' },
+                        { val: '168',label: 'Weekly' }
+                      ].forEach(opt => { %>
+                      <option value="<%= opt.val %>" <%= settings.auto_backup_interval_hours === opt.val ? 'selected' : '' %>><%= opt.label %></option>
+                      <% }) %>
+                    </select>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label fw-medium">Backup Save Location</label>
+                    <input type="text" class="form-control" name="auto_backup_path"
+                      value="<%= settings.auto_backup_path || '' %>"
+                      placeholder="Leave blank for default (%APPDATA%/erp-backups or ~/erp-backups)">
+                    <div class="form-text">Full folder path where backups will be saved. Default: user's app data folder.</div>
+                  </div>
+                </div>
+
+                <div class="mt-3 p-3 rounded" style="background:rgba(0,0,0,.03);border:1px dashed var(--color-border-tertiary)">
+                  <div class="d-flex align-items-start gap-3 flex-wrap">
+                    <div class="flex-fill">
+                      <div class="small fw-semibold mb-1"><i class="bi bi-info-circle me-1 text-primary"></i>What gets backed up</div>
+                      <div class="small text-muted">Products, customers, suppliers, all sales, purchases, expenses. Last 10 auto-backups are kept — older ones are deleted automatically.</div>
+                    </div>
+                    <div>
+                      <button type="button" class="btn btn-outline-primary btn-sm" onclick="runBackupNow()" id="backupNowBtn">
+                        <span class="btn-text"><i class="bi bi-cloud-arrow-up me-2"></i>Backup Now</span>
+                        <span class="btn-loader d-none"><span class="spinner-border spinner-border-sm me-2"></span>Running...</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div id="backupNowMsg" class="d-none mt-2"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save -->
+      <div class="col-12">
+        <div class="d-flex justify-content-end gap-3">
+          <a href="/" class="btn btn-outline-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-lg px-5">
+            <i class="bi bi-check-lg me-2"></i>Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+function toggleBackupFields(enabled) {
+  const fields = document.getElementById('backupConfigFields');
+  const label  = document.getElementById('backupToggleLabel');
+  const badge  = document.getElementById('backupStatusBadge');
+  fields.style.opacity        = enabled ? '1' : '.45';
+  fields.style.pointerEvents  = enabled ? '' : 'none';
+  label.textContent = enabled ? 'Enabled' : 'Disabled';
+  badge.className   = `badge ${enabled ? 'bg-success' : 'bg-secondary'}`;
+  badge.innerHTML   = `<i class="bi bi-${enabled ? 'check-circle' : 'pause-circle'} me-1"></i>${enabled ? 'Running' : 'Stopped'}`;
+}
+
+async function runBackupNow() {
+  const btn = document.getElementById('backupNowBtn');
+  btn.querySelector('.btn-text').classList.add('d-none');
+  btn.querySelector('.btn-loader').classList.remove('d-none');
+  btn.disabled = true;
+  try {
+    const res  = await fetch('/settings/backup-now', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    const data = await res.json();
+    const msg  = document.getElementById('backupNowMsg');
+    msg.className = `alert alert-${data.success ? 'success' : 'danger'} py-2 small`;
+    msg.innerHTML = `<i class="bi bi-${data.success ? 'check-circle' : 'exclamation-triangle'}-fill me-2"></i>${data.message}`;
+    msg.classList.remove('d-none');
+    setTimeout(() => msg.classList.add('d-none'), 5000);
+  } finally {
+    btn.querySelector('.btn-text').classList.remove('d-none');
+    btn.querySelector('.btn-loader').classList.add('d-none');
+    btn.disabled = false;
+  }
+}
+</script>

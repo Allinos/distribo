@@ -1,0 +1,273 @@
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title"><i class="bi bi-person-lines-fill me-2 text-primary"></i><%= customer.name %></h2>
+      <p class="page-subtitle">
+        <% if (customer.phone) { %><i class="bi bi-telephone me-1"></i><%= customer.phone %><% } %>
+        <% if (customer.email) { %> · <i class="bi bi-envelope me-1"></i><%= customer.email %><% } %>
+        <% if (customer.gstin) { %> · GSTIN: <%= customer.gstin %><% } %>
+      </p>
+    </div>
+    <div class="page-actions">
+      <a href="/customers" class="btn btn-outline-secondary me-2"><i class="bi bi-arrow-left me-2"></i>Back</a>
+      <% if (pendingInvoices.length > 0) { %>
+      <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#paymentModal">
+        <i class="bi bi-cash me-2"></i>Collect Payment
+      </button>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="stat-card stat-card-primary">
+        <div class="stat-icon"><i class="bi bi-receipt"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Total Purchases</div>
+          <div class="stat-value">₹<%= summary.totalSales.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+          <div class="stat-change neutral"><%= sales.length %> invoices</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="stat-card stat-card-success">
+        <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Amount Paid</div>
+          <div class="stat-value">₹<%= summary.totalPaid.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+          <div class="stat-change neutral">collected</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="stat-card <%= summary.pendingDue > 0 ? 'stat-card-danger' : 'stat-card-success' %>">
+        <div class="stat-icon"><i class="bi bi-<%= summary.pendingDue > 0 ? 'clock' : 'check-all' %>"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Pending Due</div>
+          <div class="stat-value">₹<%= summary.pendingDue.toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+          <div class="stat-change <%= summary.pendingDue > 0 ? 'negative' : 'positive' %>">
+            <%= summary.pendingDue > 0 ? 'Outstanding' : 'Cleared' %>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="stat-card stat-card-warning">
+        <div class="stat-icon"><i class="bi bi-file-earmark-text"></i></div>
+        <div class="stat-content">
+          <div class="stat-label">Pending Invoices</div>
+          <div class="stat-value"><%= pendingInvoices.length %></div>
+          <div class="stat-change neutral">unpaid / partial</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Date filter -->
+  <div class="card erp-card mb-4">
+    <div class="card-body py-3">
+      <form method="GET" class="row g-3 align-items-end">
+        <div class="col-md-3"><label class="form-label small fw-medium">From</label><input type="date" class="form-control" name="from" value="<%= from %>"></div>
+        <div class="col-md-3"><label class="form-label small fw-medium">To</label><input type="date" class="form-control" name="to" value="<%= to %>"></div>
+        <div class="col-md-4 d-flex gap-2 align-items-end">
+          <button type="submit" class="btn btn-primary">Filter</button>
+          <a href="/customers/<%= customer.id %>/ledger" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Pending Invoices Alert -->
+  <% if (pendingInvoices.length > 0) { %>
+  <div class="card erp-card border-warning mb-4">
+    <div class="card-header" style="background:rgba(245,158,11,.08)">
+      <h5 class="card-title text-warning"><i class="bi bi-exclamation-triangle-fill me-2"></i>Pending Invoices — Collect Now</h5>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover erp-table mb-0">
+          <thead><tr><th>Invoice #</th><th>Date</th><th>Total</th><th>Paid</th><th class="text-danger">Due</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+          <tbody>
+            <% pendingInvoices.forEach(s => {
+              const due = parseFloat(s.total) - parseFloat(s.amountPaid || 0);
+            %>
+            <tr>
+              <td><a href="/sales/<%= s.id %>" class="fw-semibold text-primary invoice-link"><%= s.invoiceNo %></a></td>
+              <td class="text-muted small"><%= new Date(s.saleDate).toLocaleDateString('en-IN') %></td>
+              <td class="fw-medium">₹<%= parseFloat(s.total).toLocaleString('en-IN') %></td>
+              <td class="text-success small">₹<%= parseFloat(s.amountPaid||0).toLocaleString('en-IN') %></td>
+              <td class="fw-bold text-danger">₹<%= due.toLocaleString('en-IN') %></td>
+              <td><span class="badge bg-<%= s.status==='PARTIAL'?'warning text-dark':'danger' %>"><%= s.status %></span></td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-success" onclick="quickPay(<%= s.id %>, '<%= s.invoiceNo %>', <%= due.toFixed(2) %>)">
+                  <i class="bi bi-cash me-1"></i>Collect ₹<%= due.toLocaleString('en-IN',{maximumFractionDigits:0}) %>
+                </button>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="row g-4">
+    <!-- Purchase History -->
+    <div class="col-xl-8">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-receipt me-2"></i>Purchase History</h5></div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover erp-table mb-0">
+              <thead><tr><th>Invoice</th><th>Date</th><th>Items</th><th>Total</th><th>Paid</th><th>Due</th><th>Status</th></tr></thead>
+              <tbody>
+                <% if (!sales.length) { %>
+                <tr><td colspan="7" class="text-center py-4 text-muted">No purchases found</td></tr>
+                <% } %>
+                <% sales.forEach(s => { const due = parseFloat(s.total) - parseFloat(s.amountPaid || 0); %>
+                <tr>
+                  <td><a href="/sales/<%= s.id %>" class="fw-medium text-primary invoice-link"><%= s.invoiceNo %></a></td>
+                  <td class="text-muted small"><%= new Date(s.saleDate).toLocaleDateString('en-IN') %></td>
+                  <td><span class="badge bg-light text-dark border"><%= s.items.length %></span></td>
+                  <td class="fw-medium">₹<%= parseFloat(s.total).toLocaleString('en-IN') %></td>
+                  <td class="text-success small">₹<%= parseFloat(s.amountPaid||0).toLocaleString('en-IN') %></td>
+                  <td class="<%= due>0?'text-danger fw-semibold':'text-muted' %> small">₹<%= due.toLocaleString('en-IN') %></td>
+                  <td><span class="badge bg-<%= s.status==='PAID'?'success':s.status==='CANCELLED'?'secondary':s.status==='PARTIAL'?'warning text-dark':'danger' %>"><%= s.status %></span></td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Account Ledger -->
+    <div class="col-xl-4">
+      <div class="card erp-card">
+        <div class="card-header"><h5 class="card-title"><i class="bi bi-journal-text me-2"></i>Account Ledger</h5></div>
+        <div class="card-body p-0" style="max-height:460px;overflow-y:auto">
+          <% if (!ledger.length) { %>
+          <div class="text-center py-4 text-muted small">No ledger entries yet</div>
+          <% } else { %>
+          <% ledger.slice().reverse().forEach(entry => { %>
+          <div class="d-flex justify-content-between align-items-start px-3 py-2 border-bottom">
+            <div>
+              <div class="small fw-medium"><%= entry.note || entry.type %></div>
+              <div class="text-muted" style="font-size:.7rem"><%= new Date(entry.createdAt).toLocaleDateString('en-IN') %></div>
+            </div>
+            <div class="text-end ms-2">
+              <div class="small fw-semibold <%= entry.type==='PAYMENT'||entry.type==='CREDIT_NOTE'?'text-success':'text-danger' %>">
+                <%= entry.type==='PAYMENT'||entry.type==='CREDIT_NOTE'?'−':'+'%>₹<%= parseFloat(entry.amount).toLocaleString('en-IN',{maximumFractionDigits:0}) %>
+              </div>
+              <div class="text-muted" style="font-size:.68rem">Bal: ₹<%= parseFloat(entry.balance).toLocaleString('en-IN',{maximumFractionDigits:0}) %></div>
+            </div>
+          </div>
+          <% }) %>
+          <% } %>
+        </div>
+        <% if (summary.pendingDue > 0) { %>
+        <div class="card-footer" style="background:rgba(220,38,38,.07)">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-semibold text-danger small">Outstanding Balance</span>
+            <span class="fw-bold text-danger">₹<%= summary.pendingDue.toLocaleString('en-IN',{maximumFractionDigits:0}) %></span>
+          </div>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-cash me-2 text-success"></i>Record Payment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="payMsg" class="d-none mb-3"></div>
+        <div class="mb-3">
+          <label class="form-label fw-medium">Invoice <span class="text-danger">*</span></label>
+          <select class="form-select" id="paySaleId" onchange="updateDueAmount()">
+            <option value="">— Select invoice —</option>
+            <% pendingInvoices.forEach(s => {
+              const due = parseFloat(s.total) - parseFloat(s.amountPaid||0);
+            %>
+            <option value="<%= s.id %>" data-due="<%= due.toFixed(2) %>">
+              <%= s.invoiceNo %> · Due: ₹<%= due.toLocaleString('en-IN') %>
+            </option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-medium">Amount (₹) <span class="text-danger">*</span></label>
+          <input type="number" class="form-control" id="payAmount" min="0.01" step="0.01" placeholder="Enter amount">
+          <div class="form-text" id="payDueHint"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-medium">Payment Mode</label>
+          <select class="form-select" id="payMode">
+            <option value="CASH">💵 Cash</option>
+            <option value="UPI">📱 UPI</option>
+            <option value="CARD">💳 Card</option>
+            <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label small fw-medium">Reference (optional)</label>
+          <input type="text" class="form-control" id="payRef" placeholder="UPI txn ID, cheque #...">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="submitPayment()">
+          <i class="bi bi-check-lg me-2"></i>Record Payment
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function quickPay(saleId, invoiceNo, due) {
+  document.getElementById('paySaleId').value = saleId;
+  document.getElementById('payAmount').value = parseFloat(due).toFixed(2);
+  document.getElementById('payDueHint').textContent = `Full due: ₹${parseFloat(due).toLocaleString('en-IN')}`;
+  new bootstrap.Modal(document.getElementById('paymentModal')).show();
+}
+
+function updateDueAmount() {
+  const sel = document.getElementById('paySaleId');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt.value) { document.getElementById('payDueHint').textContent = ''; return; }
+  const due = opt.dataset.due;
+  document.getElementById('payAmount').value = parseFloat(due).toFixed(2);
+  document.getElementById('payDueHint').textContent = `Full due: ₹${parseFloat(due).toLocaleString('en-IN')}`;
+}
+
+async function submitPayment() {
+  const saleId = document.getElementById('paySaleId').value;
+  const amount = document.getElementById('payAmount').value;
+  const mode   = document.getElementById('payMode').value;
+  const ref    = document.getElementById('payRef').value;
+  if (!saleId || !amount) { showPayMsg('danger', 'Select an invoice and enter amount.'); return; }
+  try {
+    const res  = await fetch(`/customers/<%= customer.id %>/payment`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saleId, mode, amount, reference: ref })
+    });
+    const data = await res.json();
+    showPayMsg(data.success ? 'success' : 'danger', data.message);
+    if (data.success) setTimeout(() => location.reload(), 1200);
+  } catch { showPayMsg('danger', 'Network error.'); }
+}
+
+function showPayMsg(type, msg) {
+  const el = document.getElementById('payMsg');
+  el.className = `alert alert-${type} py-2`;
+  el.textContent = msg;
+  el.classList.remove('d-none');
+}
+</script>

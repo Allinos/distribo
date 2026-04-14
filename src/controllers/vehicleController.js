@@ -600,6 +600,63 @@ exports.cancelVanSale = async (req, res) => {
   }
 };
 
+// ─── Sell All Remaining Van Stock ──────────────────────────────────────────────
+
+exports.sellRemaining = async (req, res) => {
+  const vehicleId = parseInt(req.params.id);
+  const { paymentMode, notes } = req.body;
+  try {
+    const prisma = await getPrisma();
+    const vehicle = await prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      include: { stocks: { where: { quantity: { gt: 0 } }, include: { product: true } } }
+    });
+    if (!vehicle) return res.json({ success: false, message: 'Vehicle not found.' });
+    if (!vehicle.stocks.length) return res.json({ success: false, message: 'No remaining stock on this vehicle.' });
+ 
+    const count     = await prisma.vanSale.count();
+    const invoiceNo = `VS-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
+    let subtotal = 0, taxAmount = 0;
+    const saleItems = vehicle.stocks.map(s => {
+      const base = parseFloat(s.product.price) * s.quantity;
+      const tax  = (base * parseFloat(s.product.tax || 0)) / 100;
+      subtotal += base; taxAmount += tax;
+      return { productId: s.productId, quantity: s.quantity, price: parseFloat(s.product.price), costPrice: parseFloat(s.product.avgCostPrice || 0), tax: parseFloat(s.product.tax || 0), total: base + tax };
+    });
+ 
+    await prisma.$transaction(async (tx) => {
+      await tx.vanSale.create({
+        data: {
+          invoiceNo,
+          vehicleId,
+          customerId:  null,
+          userId:      req.session.user.id,
+          subtotal, taxAmount, discount: 0,
+          total:       subtotal + taxAmount,
+          paymentMode: paymentMode || 'CASH',
+          status:      'PAID',
+          notes:       notes || 'Bulk remaining stock sale',
+          items:       { create: saleItems }
+        }
+      });
+      for (const item of saleItems) {
+        await tx.vehicleStock.update({ where: { vehicleId_productId: { vehicleId, productId: item.productId } }, data: { quantity: 0 } });
+        await tx.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
+      }
+    });
+ 
+    res.json({
+      success: true,
+      message: `${saleItems.length} products sold. Total: ₹${(subtotal + taxAmount).toLocaleString('en-IN')}`,
+      invoiceNo
+    });
+  } catch (err) {
+    console.error(err);
+    res.json({ success: false, message: err.message || 'Failed to sell remaining stock.' });
+  }
+};
+ 
+
 // ─── API endpoints ─────────────────────────────────────────────────────────────
 exports.apiVehicleStock = async (req, res) => {
   const vehicleId = parseInt(req.params.id);

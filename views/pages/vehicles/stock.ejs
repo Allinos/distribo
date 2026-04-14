@@ -9,7 +9,13 @@
     </div>
     <div class="page-actions">
       <a href="/vehicles" class="btn btn-outline-secondary me-2"><i class="bi bi-arrow-left me-2"></i>Back</a>
-      <a href="/vehicles/sales/new?vehicleId=<%= vehicle.id %>" class="btn btn-success">
+      <% const loadedItems = products.filter(p => p.vehicleStock > 0); %>
+      <% if (loadedItems.length > 0) { %>
+      <button class="btn btn-warning me-2" data-bs-toggle="modal" data-bs-target="#sellRemainingModal">
+        <i class="bi bi-lightning-charge me-2"></i>Sell All Remaining
+      </button>
+      <% } %>
+      <a href="/vehicles/sales/new" class="btn btn-success">
         <i class="bi bi-plus me-2"></i>New Van Sale
       </a>
     </div>
@@ -20,7 +26,8 @@
   <div class="row g-4">
     <!-- Load / Return Panel -->
     <div class="col-xl-4">
-      <!-- Load Stock -->
+
+      <!-- Bulk Load -->
       <div class="card erp-card mb-4">
         <div class="card-header">
           <h5 class="card-title"><i class="bi bi-box-arrow-in-right me-2 text-primary"></i>Load Stock onto Van</h5>
@@ -28,33 +35,14 @@
         </div>
         <div class="card-body">
           <div class="alert alert-info small py-2 mb-3">
-            <i class="bi bi-info-circle me-1"></i>
-            Stock moves from warehouse to the van. Product total stays the same.
+            <i class="bi bi-info-circle me-1"></i>Stock moves from warehouse to van. Total product stock stays the same.
           </div>
-          <div class="mb-3">
-            <label class="form-label small fw-medium">Product <span class="text-danger">*</span></label>
-            <select class="form-select" id="assignProduct" onchange="updateAssignInfo()">
-              <option value="">Select product...</option>
-              <% products.forEach(p => { %>
-              <option value="<%= p.id %>"
-                data-wh-stock="<%= p.warehouseStock %>"
-                data-vs-stock="<%= p.vehicleStock %>"
-                data-unit="<%= p.unit %>">
-                <%= p.name %> — WH: <%= p.warehouseStock %> / Van: <%= p.vehicleStock %> <%= p.unit %>
-              </option>
-              <% }) %>
-            </select>
-            <div class="form-text mt-1" id="assignInfo"></div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small fw-medium">Quantity <span class="text-danger">*</span></label>
-            <div class="input-group">
-              <input type="number" class="form-control" id="assignQty" min="1" value="1">
-              <span class="input-group-text" id="assignUnit">units</span>
-            </div>
-          </div>
-          <button class="btn btn-primary w-100" onclick="assignStock()">
-            <i class="bi bi-box-arrow-in-right me-2"></i>Load onto Van
+          <div id="bulkLoadItems"></div>
+          <button class="btn btn-outline-secondary btn-sm w-100 mb-3" onclick="addBulkRow()">
+            <i class="bi bi-plus me-1"></i>Add Another Product
+          </button>
+          <button class="btn btn-primary w-100" onclick="bulkAssign()">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Load All onto Van
           </button>
         </div>
       </div>
@@ -62,27 +50,20 @@
       <!-- Return Stock -->
       <div class="card erp-card">
         <div class="card-header">
-          <h5 class="card-title"><i class="bi bi-box-arrow-left me-2 text-warning"></i>Return Stock to Warehouse</h5>
+          <h5 class="card-title"><i class="bi bi-box-arrow-left me-2 text-warning"></i>Return to Warehouse</h5>
           <small class="text-muted">Vehicle → Warehouse</small>
         </div>
         <div class="card-body">
-          <div class="alert alert-warning small py-2 mb-3">
-            <i class="bi bi-info-circle me-1"></i>
-            Unsold stock returns to the default warehouse. Product total stays the same.
-          </div>
           <div class="mb-3">
             <label class="form-label small fw-medium">Product</label>
             <select class="form-select" id="returnProduct" onchange="updateReturnInfo()">
               <option value="">Select product...</option>
               <% products.filter(p => p.vehicleStock > 0).forEach(p => { %>
-              <option value="<%= p.id %>"
-                data-vs-stock="<%= p.vehicleStock %>"
-                data-unit="<%= p.unit %>">
-                <%= p.name %> (on van: <%= p.vehicleStock %> <%= p.unit %>)
+              <option value="<%= p.id %>" data-vs="<%= p.vehicleStock %>" data-unit="<%= p.unit %>">
+                <%= p.name %> (Van: <%= p.vehicleStock %> <%= p.unit %>)
               </option>
               <% }) %>
             </select>
-            <div class="form-text mt-1" id="returnInfo"></div>
           </div>
           <div class="mb-3">
             <label class="form-label small fw-medium">Quantity</label>
@@ -90,6 +71,7 @@
               <input type="number" class="form-control" id="returnQty" min="1" value="1">
               <span class="input-group-text" id="returnUnit">units</span>
             </div>
+            <div class="form-text" id="returnInfo"></div>
           </div>
           <button class="btn btn-warning w-100" onclick="returnStock()">
             <i class="bi bi-box-arrow-left me-2"></i>Return to Warehouse
@@ -98,59 +80,44 @@
       </div>
     </div>
 
-    <!-- Current Van Stock Table -->
+    <!-- Van Stock Table -->
     <div class="col-xl-8">
-      <div class="card erp-card">
+      <div class="card erp-card mb-4">
         <div class="card-header">
           <h5 class="card-title"><i class="bi bi-box-seam me-2"></i>Current Van Stock</h5>
           <div class="d-flex gap-2">
-            <span class="badge bg-success"><%= products.filter(p => p.vehicleStock > 0).length %> loaded</span>
-            <span class="badge bg-light text-dark border"><%= products.reduce((s,p) => s + p.vehicleStock, 0) %> total units</span>
+            <span class="badge bg-primary"><%= loadedItems.length %> loaded</span>
+            <span class="badge bg-light text-dark border"><%= products.reduce((s,p)=>s+p.vehicleStock,0) %> total units</span>
           </div>
         </div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-hover erp-table mb-0">
               <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Category</th>
-                  <th class="text-center">On Van</th>
-                  <th class="text-center">In Warehouse</th>
-                  <th class="text-center">Total Stock</th>
-                  <th>Status</th>
-                </tr>
+                <tr><th>Product</th><th>Category</th><th class="text-center">On Van</th><th class="text-center">In Warehouse</th><th class="text-center">Total</th><th>Status</th></tr>
               </thead>
               <tbody>
                 <% if (!products.length) { %>
-                <tr><td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-inbox fs-2 d-block mb-2"></i>No stock information</td></tr>
+                <tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-inbox fs-2 d-block mb-2"></i>No stock information</td></tr>
                 <% } %>
                 <% products.forEach(p => { %>
-                <tr class="<%= p.vehicleStock === 0 ? '' : '' %>">
+                <tr>
                   <td>
                     <div class="fw-medium"><%= p.name %></div>
                     <code class="sku-code"><%= p.sku %></code>
                   </td>
                   <td><span class="badge bg-light text-dark border"><%= p.category.name %></span></td>
-                  <td class="text-center">
-                    <span class="fw-bold <%= p.vehicleStock === 0 ? 'text-muted' : 'text-primary' %>">
-                      <%= p.vehicleStock %> <%= p.unit %>
-                    </span>
+                  <td class="text-center fw-bold <%= p.vehicleStock===0?'text-muted':'text-primary' %>">
+                    <%= p.vehicleStock %> <%= p.unit %>
                   </td>
                   <td class="text-center text-muted"><%= p.warehouseStock %> <%= p.unit %></td>
-                  <td class="text-center">
-                    <span class="<%= p.stock > p.minStock ? 'text-success' : p.stock > 0 ? 'text-warning' : 'text-danger' %> fw-medium">
-                      <%= p.stock %> <%= p.unit %>
-                    </span>
+                  <td class="text-center <%= p.stock>p.minStock?'text-success':p.stock>0?'text-warning':'text-danger' %> fw-medium">
+                    <%= p.stock %> <%= p.unit %>
                   </td>
                   <td>
-                    <% if (p.vehicleStock === 0) { %>
-                      <span class="badge bg-light text-muted border">Not on van</span>
-                    <% } else if (p.vehicleStock <= 5) { %>
-                      <span class="badge bg-warning text-dark">Low</span>
-                    <% } else { %>
-                      <span class="badge bg-success">Loaded</span>
-                    <% } %>
+                    <% if(p.vehicleStock===0){%><span class="badge bg-light text-muted border">Not loaded</span>
+                    <%}else if(p.vehicleStock<=3){%><span class="badge bg-warning text-dark">Low</span>
+                    <%}else{%><span class="badge bg-success">Loaded</span><%}%>
                   </td>
                 </tr>
                 <% }) %>
@@ -160,22 +127,22 @@
         </div>
       </div>
 
-      <!-- How it works explainer -->
-      <div class="card erp-card mt-4">
+      <!-- How it works -->
+      <div class="card erp-card">
         <div class="card-header"><h5 class="card-title"><i class="bi bi-question-circle me-2 text-info"></i>How Van Stock Works</h5></div>
         <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-4 text-center">
+          <div class="row g-3 text-center">
+            <div class="col-md-4">
               <div class="fw-semibold text-primary mb-1"><i class="bi bi-building me-1"></i>Warehouse → Van</div>
-              <div class="small text-muted">When you <strong>load</strong> stock, it moves from the warehouse bucket to the van bucket. Total product stock is unchanged.</div>
+              <div class="small text-muted"><strong>Load</strong>: moves stock between buckets. Total unchanged.</div>
             </div>
-            <div class="col-md-4 text-center">
+            <div class="col-md-4">
               <div class="fw-semibold text-success mb-1"><i class="bi bi-receipt me-1"></i>Van Sale</div>
-              <div class="small text-muted">When you <strong>sell</strong> from the van, stock leaves the system. Both van stock and product total decrease.</div>
+              <div class="small text-muted"><strong>Sell</strong>: stock leaves the system. Both van and total decrease.</div>
             </div>
-            <div class="col-md-4 text-center">
-              <div class="fw-semibold text-warning mb-1"><i class="bi bi-building me-1"></i>Van → Warehouse</div>
-              <div class="small text-muted">When you <strong>return</strong> unsold stock, it moves back to the warehouse. Total product stock is unchanged.</div>
+            <div class="col-md-4">
+              <div class="fw-semibold text-warning mb-1"><i class="bi bi-reply me-1"></i>Van → Warehouse</div>
+              <div class="small text-muted"><strong>Return</strong>: unsold stock goes back. Total unchanged.</div>
             </div>
           </div>
         </div>
@@ -184,68 +151,189 @@
   </div>
 </div>
 
+<!-- Sell Remaining Modal -->
+<div class="modal fade" id="sellRemainingModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning bg-opacity-10">
+        <h5 class="modal-title"><i class="bi bi-lightning-charge me-2 text-warning"></i>Sell All Remaining Van Stock</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          This will sell <strong>ALL remaining stock</strong> on this van in a single transaction.
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-medium">Remaining Stock</label>
+          <div class="border rounded p-2" style="max-height:180px;overflow-y:auto">
+            <% if (!loadedItems.length) { %>
+            <p class="text-muted small mb-0">No stock on this van.</p>
+            <% } else { %>
+            <% let srTotal = 0; loadedItems.forEach(p => { const lineTotal = p.vehicleStock * parseFloat(p.price); srTotal += lineTotal; %>
+            <div class="d-flex justify-content-between small py-1 border-bottom">
+              <span class="fw-medium"><%= p.name %></span>
+              <span class="text-primary"><%= p.vehicleStock %> × ₹<%= parseFloat(p.price).toLocaleString('en-IN') %> = ₹<%= lineTotal.toLocaleString('en-IN',{maximumFractionDigits:0}) %></span>
+            </div>
+            <% }) %>
+            <div class="d-flex justify-content-between fw-bold mt-1 pt-1">
+              <span>Total</span>
+              <span class="text-success">₹<%= srTotal.toLocaleString('en-IN',{maximumFractionDigits:0}) %></span>
+            </div>
+            <% } %>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-medium">Payment Mode</label>
+          <select class="form-select" id="srPaymentMode">
+            <option value="CASH">💵 Cash — Fully Paid</option>
+            <option value="UPI">📱 UPI</option>
+            <option value="CARD">💳 Card</option>
+            <option value="CREDIT">📋 Credit</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-medium">Notes</label>
+          <input type="text" class="form-control" id="srNotes" placeholder="e.g. End of day clearance">
+        </div>
+        <div id="srAlert" class="d-none mt-3"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <% if (loadedItems.length > 0) { %>
+        <button type="button" class="btn btn-warning" id="srBtn" onclick="sellRemaining()">
+          <span class="btn-text"><i class="bi bi-lightning-charge me-2"></i>Confirm — Sell All</span>
+          <span class="btn-loader d-none"><span class="spinner-border spinner-border-sm me-2"></span>Processing...</span>
+        </button>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.bulk-row { display:grid; grid-template-columns:1fr 80px 28px; gap:6px; align-items:end; margin-bottom:8px; }
+</style>
+
 <script>
 const VEHICLE_ID = <%= vehicle.id %>;
 
-function updateAssignInfo() {
-  const opt = document.getElementById('assignProduct').options[document.getElementById('assignProduct').selectedIndex];
-  if (!opt.value) { document.getElementById('assignInfo').textContent = ''; return; }
-  const wh   = opt.dataset.whStock;
-  const vs   = opt.dataset.vsStock;
-  const unit = opt.dataset.unit;
-  document.getElementById('assignUnit').textContent = unit;
-  document.getElementById('assignQty').max = wh;
-  document.getElementById('assignInfo').innerHTML =
-    `<span class="text-primary">In warehouse: <strong>${wh} ${unit}</strong></span> &nbsp;·&nbsp;
-     <span class="text-success">On van: <strong>${vs} ${unit}</strong></span>`;
+const PRODUCTS = <%- JSON.stringify(products.map(p => ({
+  id: p.id, name: p.name, sku: p.sku, unit: p.unit,
+  warehouseStock: p.warehouseStock, vehicleStock: p.vehicleStock
+}))) %>;
+
+// ── Bulk Load ─────────────────────────────────────────────────────────────────
+function buildProductOptions(selectedId) {
+  return PRODUCTS.map(p =>
+    `<option value="${p.id}" data-wh="${p.warehouseStock}" data-unit="${p.unit}" ${p.id===selectedId?'selected':''}>
+      ${p.name} (WH: ${p.warehouseStock} ${p.unit})
+    </option>`
+  ).join('');
 }
 
+function addBulkRow(selectedId, qty) {
+  const container = document.getElementById('bulkLoadItems');
+  const div = document.createElement('div');
+  div.className = 'bulk-row';
+  div.innerHTML = `
+    <select class="form-select form-select-sm">
+      <option value="">Select product...</option>
+      ${buildProductOptions(selectedId)}
+    </select>
+    <input type="number" class="form-control form-control-sm" min="1" value="${qty||1}" placeholder="Qty">
+    <button class="btn btn-sm btn-outline-danger p-1" onclick="if(document.querySelectorAll('.bulk-row').length>1)this.closest('.bulk-row').remove()">
+      <i class="bi bi-x"></i>
+    </button>`;
+  container.appendChild(div);
+}
+
+// Add first row on load
+addBulkRow();
+
+async function bulkAssign() {
+  const rows   = document.querySelectorAll('.bulk-row');
+  const items  = [];
+  for (const row of rows) {
+    const sel = row.querySelector('select');
+    const qty = parseInt(row.querySelector('input').value) || 0;
+    if (sel.value && qty > 0) items.push({ productId: sel.value, quantity: qty });
+  }
+  if (!items.length) return showAlert('danger', 'Select at least one product to load.');
+
+  const results = [], errors = [];
+  for (const item of items) {
+    try {
+      const res  = await fetch(`/vehicles/${VEHICLE_ID}/stock/assign`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item)
+      });
+      const data = await res.json();
+      if (data.success) results.push(data.message);
+      else errors.push(data.message);
+    } catch { errors.push('Network error'); }
+  }
+
+  if (errors.length) showAlert('warning', [...results, ...errors.map(e=>'⚠ '+e)].join(' | '));
+  else { showAlert('success', results.join(' | ')); setTimeout(() => location.reload(), 1500); }
+}
+
+// ── Return ────────────────────────────────────────────────────────────────────
 function updateReturnInfo() {
   const opt = document.getElementById('returnProduct').options[document.getElementById('returnProduct').selectedIndex];
   if (!opt.value) { document.getElementById('returnInfo').textContent = ''; return; }
-  const vs   = opt.dataset.vsStock;
-  const unit = opt.dataset.unit;
-  document.getElementById('returnUnit').textContent = unit;
-  document.getElementById('returnQty').max = vs;
-  document.getElementById('returnInfo').innerHTML =
-    `<span class="text-warning">On van: <strong>${vs} ${unit}</strong></span>`;
-}
-
-async function assignStock() {
-  const productId = document.getElementById('assignProduct').value;
-  const quantity  = document.getElementById('assignQty').value;
-  if (!productId || !quantity) return showAlert('danger', 'Select a product and enter quantity.');
-  try {
-    const res  = await fetch(`/vehicles/${VEHICLE_ID}/stock/assign`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId, quantity })
-    });
-    const data = await res.json();
-    showAlert(data.success ? 'success' : 'danger', data.message);
-    if (data.success) setTimeout(() => location.reload(), 1200);
-  } catch { showAlert('danger', 'Network error.'); }
+  document.getElementById('returnUnit').textContent = opt.dataset.unit;
+  document.getElementById('returnQty').max = opt.dataset.vs;
+  document.getElementById('returnInfo').textContent = `On van: ${opt.dataset.vs} ${opt.dataset.unit}`;
 }
 
 async function returnStock() {
   const productId = document.getElementById('returnProduct').value;
   const quantity  = document.getElementById('returnQty').value;
   if (!productId || !quantity) return showAlert('danger', 'Select a product and enter quantity.');
+  const res  = await fetch(`/vehicles/${VEHICLE_ID}/stock/return`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId, quantity })
+  });
+  const data = await res.json();
+  showAlert(data.success ? 'success' : 'danger', data.message);
+  if (data.success) setTimeout(() => location.reload(), 1200);
+}
+
+// ── Sell Remaining ────────────────────────────────────────────────────────────
+async function sellRemaining() {
+  const btn = document.getElementById('srBtn');
+  btn.querySelector('.btn-text').classList.add('d-none');
+  btn.querySelector('.btn-loader').classList.remove('d-none');
+  btn.disabled = true;
   try {
-    const res  = await fetch(`/vehicles/${VEHICLE_ID}/stock/return`, {
+    const res  = await fetch(`/vehicles/${VEHICLE_ID}/sell-remaining`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId, quantity })
+      body: JSON.stringify({
+        paymentMode: document.getElementById('srPaymentMode').value,
+        notes:       document.getElementById('srNotes').value
+      })
     });
     const data = await res.json();
-    showAlert(data.success ? 'success' : 'danger', data.message);
-    if (data.success) setTimeout(() => location.reload(), 1200);
-  } catch { showAlert('danger', 'Network error.'); }
+    const el   = document.getElementById('srAlert');
+    el.className = `alert alert-${data.success?'success':'danger'}`;
+    el.innerHTML = `<i class="bi bi-${data.success?'check-circle':'exclamation-triangle'}-fill me-2"></i>${data.message}`;
+    el.classList.remove('d-none');
+    if (data.success) setTimeout(() => location.reload(), 1500);
+    else { btn.querySelector('.btn-text').classList.remove('d-none'); btn.querySelector('.btn-loader').classList.add('d-none'); btn.disabled = false; }
+  } catch {
+    document.getElementById('srAlert').innerHTML = '<i class="bi bi-x-circle me-2"></i>Network error.';
+    document.getElementById('srAlert').className = 'alert alert-danger';
+    document.getElementById('srAlert').classList.remove('d-none');
+    btn.querySelector('.btn-text').classList.remove('d-none'); btn.querySelector('.btn-loader').classList.add('d-none'); btn.disabled = false;
+  }
 }
 
 function showAlert(type, msg) {
   const el = document.getElementById('stockAlert');
   el.className = `alert alert-${type}`;
-  el.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}-fill me-2"></i>${msg}`;
+  el.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':'exclamation-triangle'}-fill me-2"></i>${msg}`;
   el.classList.remove('d-none');
-  if (type === 'success') setTimeout(() => el.classList.add('d-none'), 5000);
+  if (type === 'success') setTimeout(() => el.classList.add('d-none'), 6000);
 }
 </script>

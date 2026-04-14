@@ -1,6 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // ADD THIS METHOD to the bottom of your existing warehouseController.js
 // ─────────────────────────────────────────────────────────────────────────────
+'use strict';
+const { getPrisma } = require('../utils/prisma');
 
 exports.analytics = async (req, res) => {
   const warehouseId = parseInt(req.params.id);
